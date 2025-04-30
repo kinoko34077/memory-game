@@ -1,5 +1,4 @@
-import { convertRubyText, renderRubyToElement } from './ruby.js';
-import { setupSettingsPanel, loadSettings, getCurrentSettings } from './settings-panel.js';
+// game.js
 
 let pairs = [];
 let fileLoaded = false;
@@ -11,8 +10,22 @@ const useFileCheckbox = document.getElementById('use-file');
 const pairCountSelect = document.getElementById('pair-count');
 const rubyToggle = document.getElementById('show-ruby');
 const startButton = document.getElementById('start-game');
-const logArea = document.getElementById('log-area');
 
+// タイマー設定ドロップダウン
+const timerSelect = document.createElement('select');
+timerSelect.id = 'timer-setting';
+timerSelect.innerHTML = `
+  <option value="off">⏹️ タイマーなし</option>
+  <option value="countdown">⏱️ 制限時間（60秒）</option>
+  <option value="up">🕒 経過時間（ストップウォッチ）</option>
+`;
+const timerLabel = document.createElement('label');
+timerLabel.textContent = 'タイマー設定：';
+timerLabel.style.marginLeft = '20px';
+timerLabel.appendChild(timerSelect);
+document.getElementById('controls').appendChild(timerLabel);
+
+// タイマー表示
 const timerDisplay = document.createElement('span');
 timerDisplay.id = 'timer-display';
 timerDisplay.style.marginLeft = '20px';
@@ -20,6 +33,14 @@ timerDisplay.style.display = 'inline-block';
 timerDisplay.style.fontSize = '16px';
 timerDisplay.style.fontWeight = 'bold';
 document.getElementById('controls').appendChild(timerDisplay);
+
+// ログ表示
+const logArea = document.getElementById('log-area');
+logArea.style.marginTop = '20px';
+logArea.style.fontSize = '14px';
+logArea.style.maxHeight = '200px';
+logArea.style.overflowY = 'auto';
+document.body.appendChild(logArea);
 
 const enumTimerMode = {
   OFF: 'off',
@@ -29,8 +50,6 @@ const enumTimerMode = {
 
 let timerInterval;
 let timeCounter = 0;
-let currentTimerMode = enumTimerMode.OFF;
-let settings = {};
 
 function logDebug(message, ...optional) {
   if (DEBUG) console.log(`[DEBUG] ${message}`, ...optional);
@@ -45,31 +64,28 @@ function logUserAction(text) {
 
 function startTimer(mode) {
   clearInterval(timerInterval);
-  currentTimerMode = mode;
-  timeCounter = mode === enumTimerMode.COUNTDOWN ? settings.countdownSeconds : 0;
-  updateTimerDisplay();
+  timeCounter = mode === enumTimerMode.COUNTDOWN ? 60 : 0;
+  updateTimerDisplay(mode);
 
   timerInterval = setInterval(() => {
     if (mode === enumTimerMode.COUNTDOWN) {
       timeCounter--;
-      updateTimerDisplay();
+      updateTimerDisplay(mode);
       if (timeCounter <= 0) {
         clearInterval(timerInterval);
         alert('時間切れ！');
       }
     } else if (mode === enumTimerMode.UP) {
       timeCounter++;
-      updateTimerDisplay();
+      updateTimerDisplay(mode);
     }
   }, 1000);
 }
 
-function updateTimerDisplay() {
-  if (!settings.alwaysShowTime && currentTimerMode === enumTimerMode.OFF) {
+function updateTimerDisplay(mode) {
+  if (mode === enumTimerMode.OFF) {
     timerDisplay.textContent = '';
-    return;
-  }
-  if (currentTimerMode === enumTimerMode.COUNTDOWN) {
+  } else if (mode === enumTimerMode.COUNTDOWN) {
     timerDisplay.textContent = `⏱️ 残り: ${timeCounter}s`;
   } else {
     timerDisplay.textContent = `🕒 経過: ${timeCounter}s`;
@@ -77,7 +93,7 @@ function updateTimerDisplay() {
 }
 
 function parsePairs(text) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const lines = text.replace(/\r\n/g, '\n').split('\n'); // ← Windows対策も含む
   return lines
     .map(line => line.trim())
     .filter(line => line && line.includes(','))
@@ -87,11 +103,12 @@ function parsePairs(text) {
     });
 }
 
+
 function parsePairsWithRuby(text) {
   const base = parsePairs(text);
   return base.map(([a, b]) => [
-    convertRubyText(a),
-    convertRubyText(b)
+    typeof convertRubyText === 'function' ? convertRubyText(a) : a,
+    typeof convertRubyText === 'function' ? convertRubyText(b) : b
   ]);
 }
 
@@ -115,7 +132,7 @@ function loadDefaultPairs() {
     });
 }
 
-function setupBoard(gamePairs) {
+function setupBoard(gamePairs, rubyEnabled, timerSetting) {
   board.innerHTML = '';
 
   const windowWidth = window.innerWidth;
@@ -131,9 +148,7 @@ function setupBoard(gamePairs) {
 
     const cardText = document.createElement('span');
     cardText.classList.add('card-text');
-    cardText.style.fontSize = settings.fontSize + 'px';
-
-    renderRubyToElement(cardText, cardData.value, settings.showRuby);
+    renderRubyToElement(cardText, cardData.value, rubyEnabled);
 
     card.appendChild(cardText);
     card.addEventListener('click', handleCardClick);
@@ -141,7 +156,7 @@ function setupBoard(gamePairs) {
   });
 
   logDebug('描画完了', { cardCount: gamePairs.length });
-  if (settings.countdownSeconds > 0 || settings.alwaysShowTime) startTimer(settings.countdownSeconds > 0 ? enumTimerMode.COUNTDOWN : enumTimerMode.UP);
+  if (timerSetting !== enumTimerMode.OFF) startTimer(timerSetting);
 }
 
 let firstCard = null;
@@ -162,16 +177,6 @@ function handleCardClick(e) {
     if (firstCard.dataset.pairId === card.dataset.pairId && firstCard !== card) {
       firstCard.classList.add('matched');
       card.classList.add('matched');
-
-      if (settings.pairRemoveMode === 'hide') {
-        setTimeout(() => {
-          firstCard.innerHTML = '';
-          card.innerHTML = '';
-          firstCard.classList.add('removed');
-          card.classList.add('removed');
-        }, 300);
-      }
-
       resetBoard();
     } else {
       lockBoard = true;
@@ -179,7 +184,7 @@ function handleCardClick(e) {
         firstCard.classList.remove('flipped');
         card.classList.remove('flipped');
         resetBoard();
-      }, settings.revertDelay);
+      }, 1000);
     }
   }
 }
@@ -189,7 +194,6 @@ function resetBoard() {
   lockBoard = false;
 }
 
-// 初期設定
 for (let i = 1; i <= 50; i++) {
   const option = document.createElement('option');
   option.value = i;
@@ -223,6 +227,7 @@ fileInput.addEventListener('change', (e) => {
         logDebug('ファイルからペア読み込み成功', pairs);
       } else {
         alert("ファイルに有効なペアが含まれていません");
+        logDebug('ファイルにペアが含まれていない');
         fileLoaded = false;
       }
     };
@@ -230,33 +235,33 @@ fileInput.addEventListener('change', (e) => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', () => {
   if (!useFileCheckbox.checked) {
     loadDefaultPairs();
     fileInput.style.display = 'none';
   } else {
     fileInput.style.display = 'inline';
   }
-  setupSettingsPanel();
-  settings = getCurrentSettings();
 });
 
 startButton.addEventListener('click', () => {
-  settings = getCurrentSettings();
-
   const mode = document.getElementById('mode').value;
   const pairCountValue = pairCountSelect.value;
+  const rubyEnabled = rubyToggle.checked;
+  const timerSetting = timerSelect.value;
 
   logDebug('ゲーム開始ボタン押下', {
     mode,
     pairCountValue,
-    settings,
+    rubyEnabled,
+    timerSetting,
     pairCount: pairs.length,
     fileLoaded
   });
 
   if (!fileLoaded || !pairs || pairs.length === 0) {
     alert('ペアデータが読み込まれていません');
+    logDebug('ゲーム開始失敗：ペア未読み込み');
     return;
   }
 
@@ -267,6 +272,7 @@ startButton.addEventListener('click', () => {
 
   if (pairs.length < pairCount) {
     alert('Not enough pairs available!');
+    logDebug('ゲーム開始失敗：指定ペア数に満たない', { available: pairs.length, requested: pairCount });
     return;
   }
 
@@ -282,5 +288,6 @@ startButton.addEventListener('click', () => {
     { value: reading, reading: word, pairId: word + reading }
   ]);
 
-  setupBoard(gamePairs.sort(() => Math.random() - 0.5));
+  logDebug('最終ペア配列', gamePairs);
+  setupBoard(gamePairs.sort(() => Math.random() - 0.5), rubyEnabled, timerSetting);
 });
