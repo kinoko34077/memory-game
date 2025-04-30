@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>単語暗記用神経衰弱</title>
+    <script src="Ruby.js" defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e0f7fa;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .controls {
+            margin: 10px;
+        }
+        .game-board {
+            display: grid;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px auto;
+            max-width: 90%;
+        }
+        .card {
+            width: 100px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: white;
+            border: 2px solid #00796b;
+            border-radius: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .card.correct {
+            background-color: #cfd8dc;
+            cursor: default;
+        }
+        .hidden {
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body>
+    <h1>単語暗記用神経衰弱</h1>
+    <div class="controls">
+        <label for="mode">モード選択:</label>
+        <select id="mode">
+            <option value="ascending">昇順モード</option>
+            <option value="random">ランダムモード</option>
+        </select>
+
+        <label for="pair-count">ペア数:</label>
+        <select id="pair-count">
+            <option value="max">MAX</option>
+            <option value="5">5ペア</option>
+            <option value="10">10ペア</option>
+            <option value="15">15ペア</option>
+        </select>
+
+        <div id="range-options" style="display: none;">
+            <label for="start-line">開始行:</label>
+            <input type="number" id="start-line" min="1" value="1">
+
+            <label for="end-line">終了行:</label>
+            <input type="number" id="end-line" min="1" value="10">
+        </div>
+
+        <button id="start-game">ゲーム開始</button>
+
+        <div>
+            <label for="file-input">ファイルをアップロード:</label>
+            <input type="file" id="file-input" accept=".txt">
+        </div>
+    </div>
+    <div id="game-container">
+        <div class="game-board" id="game-board"></div>
+    </div>
+    <p id="game-clear" style="display: none; font-size: 24px; color: green;">Game Clear!</p>
+
+    <script>
+        const modeSelect = document.getElementById('mode');
+        const pairCountSelect = document.getElementById('pair-count');
+        const rangeOptions = document.getElementById('range-options');
+        const startLineInput = document.getElementById('start-line');
+        const endLineInput = document.getElementById('end-line');
+        const startGameButton = document.getElementById('start-game');
+        const fileInput = document.getElementById('file-input');
+        const gameBoard = document.getElementById('game-board');
+        const gameClearMessage = document.getElementById('game-clear');
+
+        let pairs = [];
+        let revealedCards = [];
+
+        modeSelect.addEventListener('change', () => {
+            rangeOptions.style.display = modeSelect.value === 'ascending' ? 'block' : 'none';
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    parsePairs(e.target.result);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function parsePairs(content) {
+            pairs = [];
+            const lines = content.split('\n').filter(line => line.trim() !== '');
+            for (const line of lines) {
+                const [word, reading] = line.split(',').map(item => item.trim());
+                if (word && reading) {
+                    pairs.push([`｜${word}《${reading}》`, `｜${reading}《${word}》`]);
+                }
+            }
+        }
+
+        function startGame() {
+            gameClearMessage.style.display = 'none';
+            gameBoard.innerHTML = '';
+
+            let selectedPairs = [];
+            if (modeSelect.value === 'ascending') {
+                const start = parseInt(startLineInput.value, 10) - 1;
+                const end = parseInt(endLineInput.value, 10);
+                selectedPairs = pairs.slice(start, end);
+            } else if (modeSelect.value === 'random') {
+                const pairCount = pairCountSelect.value === 'max' ? pairs.length : parseInt(pairCountSelect.value, 10);
+                selectedPairs = pairs.sort(() => Math.random() - 0.5).slice(0, pairCount);
+            }
+
+            const cards = selectedPairs.flat().sort(() => Math.random() - 0.5);
+
+            const columns = Math.min(Math.max(2, Math.floor(window.innerWidth / 120)), 10);
+            gameBoard.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+
+            cards.forEach((text, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.index = index;
+                card.textContent = '';
+                card.addEventListener('click', () => revealCard(card, text));
+                gameBoard.appendChild(card);
+            });
+        }
+
+        function revealCard(card, text) {
+            if (card.classList.contains('correct') || revealedCards.length === 2 || card.textContent) {
+                return;
+            }
+
+            card.textContent = text;
+            revealedCards.push(card);
+
+            if (revealedCards.length === 2) {
+                const [first, second] = revealedCards;
+                const firstText = first.textContent;
+                const secondText = second.textContent;
+
+                if (pairs.some(pair => pair.includes(firstText) && pair.includes(secondText))) {
+                    first.classList.add('correct');
+                    second.classList.add('correct');
+                    checkGameClear();
+                } else {
+                    setTimeout(() => {
+                        first.textContent = '';
+                        second.textContent = '';
+                    }, 1000);
+                }
+                revealedCards = [];
+            }
+        }
+
+        function checkGameClear() {
+            const allCorrect = Array.from(document.querySelectorAll('.card')).every(card => card.classList.contains('correct'));
+            if (allCorrect) {
+                gameClearMessage.style.display = 'block';
+            }
+        }
+
+        startGameButton.addEventListener('click', startGame);
+
+        window.addEventListener('resize', () => {
+            const columns = Math.min(Math.max(2, Math.floor(window.innerWidth / 120)), 10);
+            gameBoard.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+        });
+    </script>
+</body>
+</html>

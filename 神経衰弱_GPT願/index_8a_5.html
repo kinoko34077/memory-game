@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ルビ付き暗記ゲーム</title>
+  <style>
+    .card-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      width: 600px;
+      margin: auto;
+    }
+
+    .card {
+      width: 100px;
+      height: 150px;
+      background: #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1em;
+      text-align: center;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .card.hidden {
+      background: #444;
+      color: #444;
+      cursor: pointer;
+    }
+
+    .card.matched {
+      background: #cfc;
+      cursor: default;
+    }
+
+    ruby .rt {
+      font-size: 0.6em;
+    }
+  </style>
+</head>
+<body>
+  <h1>ルビ付き暗記ゲーム</h1>
+  <div class="card-container" id="card-container"></div>
+
+  <script>
+    const RUBY_REGEXP = /(?:(?:[|｜]?(?<body1>[一-龠]+?))|(?:[|｜](?<body2>[^|｜]+?)))《(?<ruby>.+?)》/gm;
+
+    // カードデータ（例）
+    const cardData = [
+      "｜単語《たんご》1",
+      "｜読み《よみ》1",
+      "｜単語《たんご》2",
+      "｜読み《よみ》2"
+    ];
+
+    // カード生成と初期化
+    const cardContainer = document.getElementById("card-container");
+    let selectedCards = [];
+    let matchedPairs = 0;
+
+    function createCard(content, index) {
+      const card = document.createElement("div");
+      card.className = "card hidden";
+      card.dataset.index = index;
+      card.dataset.content = content;
+      card.addEventListener("click", () => handleCardClick(card));
+      cardContainer.appendChild(card);
+    }
+
+    function handleCardClick(card) {
+      if (!card.classList.contains("hidden") || card.classList.contains("matched") || selectedCards.length >= 2) {
+        return;
+      }
+
+      // カードを表示
+      card.classList.remove("hidden");
+      card.innerHTML = applyRuby(card.dataset.content);
+
+      selectedCards.push(card);
+
+      if (selectedCards.length === 2) {
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = selectedCards;
+
+      if (card1.dataset.content.split(",")[0] === card2.dataset.content.split(",")[0]) {
+        card1.classList.add("matched");
+        card2.classList.add("matched");
+        matchedPairs++;
+        if (matchedPairs === cardData.length / 2) {
+          alert("ゲームクリア！");
+        }
+      } else {
+        setTimeout(() => {
+          card1.classList.add("hidden");
+          card2.classList.add("hidden");
+          card1.innerHTML = "";
+          card2.innerHTML = "";
+        }, 1000);
+      }
+
+      selectedCards = [];
+    }
+
+    function applyRuby(content) {
+      const matches = Array.from(content.matchAll(RUBY_REGEXP));
+      let result = content;
+
+      matches.forEach(({ groups }) => {
+        const { body1, body2, ruby } = groups || {};
+        const body = body1 || body2;
+
+        if (body && ruby) {
+          result = result.replace(
+            RUBY_REGEXP,
+            `<ruby>${body}<rt>${ruby}</rt></ruby>`
+          );
+        }
+      });
+
+      return result;
+    }
+
+    // カードデータをシャッフルして配置
+    const shuffledData = cardData.sort(() => Math.random() - 0.5);
+    shuffledData.forEach((content, index) => createCard(content, index));
+  </script>
+</body>
+</html>

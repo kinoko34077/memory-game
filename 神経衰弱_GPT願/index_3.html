@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #e0f7fa;
+        }
+        #game-board {
+            display: grid;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+            max-width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .card {
+            width: 100px;
+            height: 100px;
+            background-color: lightgray;
+            border: 2px solid #90a4ae;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .card.flipped {
+            background-color: white;
+            pointer-events: none;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Memory Game</h1>
+    <div id="controls">
+        <label for="mode">Mode:</label>
+        <select id="mode">
+            <option value="random">Random</option>
+            <option value="ascending">Ascending</option>
+        </select>
+        <label for="pair-count">Number of Pairs:</label>
+        <input type="number" id="pair-count" min="1" max="50" value="5">
+        <button id="start-game">Start Game</button>
+        <input type="file" id="file-input" accept=".txt" style="display: none;">
+    </div>
+    <div id="game-board"></div>
+
+    <script>
+        let pairs = [];
+        const board = document.getElementById('game-board');
+        const fileInput = document.getElementById('file-input');
+        const modeSelector = document.getElementById('mode');
+
+        // Load default file
+        window.addEventListener('load', () => {
+            fetch('pair.txt')
+                .then(response => response.text())
+                .then(text => {
+                    pairs = parsePairs(text);
+                })
+                .catch(error => console.error('Error loading default file:', error));
+        });
+
+        modeSelector.addEventListener('change', () => {
+            if (modeSelector.value === 'file') {
+                fileInput.style.display = 'inline';
+            } else {
+                fileInput.style.display = 'none';
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    pairs = parsePairs(event.target.result);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        document.getElementById('start-game').addEventListener('click', () => {
+            const mode = document.getElementById('mode').value;
+            const pairCount = parseInt(document.getElementById('pair-count').value);
+
+            if (pairs.length < pairCount) {
+                alert('Not enough pairs available in the file!');
+                return;
+            }
+
+            let selectedPairs;
+            if (mode === 'ascending') {
+                selectedPairs = pairs.slice(0, pairCount);
+            } else if (mode === 'random') {
+                selectedPairs = [...pairs].sort(() => Math.random() - 0.5).slice(0, pairCount);
+            } else {
+                alert('Invalid mode selected!');
+                return;
+            }
+
+            const gamePairs = [...selectedPairs, ...selectedPairs]
+                .sort(() => Math.random() - 0.5);
+
+            setupBoard(gamePairs);
+        });
+
+        function parsePairs(text) {
+            return text
+                .split('\n')
+                .map(line => line.trim().split(','))
+                .filter(pair => pair.length === 2);
+        }
+
+        function setupBoard(gamePairs) {
+            board.innerHTML = '';
+            const columns = Math.min(Math.ceil(Math.sqrt(gamePairs.length)), 6);
+            board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+
+            gamePairs.forEach(pair => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.value = pair[0];
+                card.textContent = '';
+                card.addEventListener('click', handleCardClick);
+                board.appendChild(card);
+            });
+        }
+
+        let firstCard = null;
+        let lockBoard = false;
+
+        function handleCardClick(e) {
+            if (lockBoard) return;
+            const card = e.target;
+
+            card.classList.add('flipped');
+            card.textContent = card.dataset.value;
+
+            if (!firstCard) {
+                firstCard = card;
+            } else {
+                if (firstCard.dataset.value === card.dataset.value) {
+                    firstCard = null;
+                } else {
+                    lockBoard = true;
+                    setTimeout(() => {
+                        firstCard.classList.remove('flipped');
+                        firstCard.textContent = '';
+                        card.classList.remove('flipped');
+                        card.textContent = '';
+                        firstCard = null;
+                        lockBoard = false;
+                    }, 1000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

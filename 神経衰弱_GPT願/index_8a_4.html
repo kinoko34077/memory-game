@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Game</title>
+    <script src="Ruby.js" defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #e0f7fa;
+        }
+        #game-board {
+            display: grid;
+            gap: 10px;
+            justify-content: center;
+            align-content: center;
+            margin-top: 20px;
+            max-width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 10px;
+        }
+        .card {
+            width: 150px;
+            height: 60px;
+            background-color: lightgray;
+            border: 2px solid #90a4ae;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            cursor: pointer;
+            text-transform: capitalize;
+            position: relative;
+        }
+        .card .card-text {
+            visibility: hidden; /* Default state is hidden */
+        }
+        .card.flipped .card-text {
+            visibility: visible; /* When flipped, show text */
+        }
+        .card.matched .card-text {
+            visibility: visible; /* When matched, show text */
+        }
+        .card.flipped {
+            background-color: white;
+            pointer-events: none;
+        }
+        .card.matched {
+            background-color: #d3d3d3;
+            pointer-events: none;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+        ruby {
+            font-size: 16px;
+        }
+        rt {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Memory Game</h1>
+    <div id="controls">
+        <label for="mode">Mode:</label>
+        <select id="mode">
+            <option value="random">Random</option>
+            <option value="ascending">Ascending</option>
+        </select>
+        <label for="pair-count">Number of Pairs:</label>
+        <select id="pair-count">
+            <option value="max">MAX</option>
+        </select>
+        <label>
+            <input type="checkbox" id="use-file"> Use External File
+        </label>
+        <input type="file" id="file-input" accept=".txt" style="display: none;">
+        <button id="start-game">Start Game</button>
+    </div>
+    <div id="game-board"></div>
+
+    <script>
+        // ゲームデータと状態
+        let pairs = [];
+        let flippedCards = [];
+        let matchedCards = 0;
+    
+        function parsePairs(text) {
+            pairs = text
+                .split('\n')
+                .map(line => line.trim().split(','))
+                .filter(pair => pair.length === 2)
+                .flatMap(([word, reading]) => {
+                    // ルビを解析して個別のカードにする
+                    const wordCard = processRuby(word);
+                    const readingCard = processRuby(reading);
+                    return [{ text: wordCard }, { text: readingCard }];
+                });
+        }
+    
+        function processRuby(text) {
+            return text.replace(/｜(.*?)《(.*?)》/g, (_, kanji, ruby) => {
+                return `<ruby>${kanji}<rt>${ruby}</rt></ruby>`;
+            });
+        }
+    
+        function startGame() {
+            board.innerHTML = ''; // 既存のカードをクリア
+            shuffledPairs = pairs.sort(() => Math.random() - 0.5); // シャッフル
+            shuffledPairs.forEach((pair, index) => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.index = index;
+                card.innerHTML = ''; // 初期状態は非表示
+                card.addEventListener('click', handleCardClick);
+                board.appendChild(card);
+            });
+            matchedCards = 0;
+        }
+    
+        function handleCardClick(e) {
+            const card = e.target;
+            const index = card.dataset.index;
+    
+            // カードがすでにマッチ済みか、二枚めくられている場合は何もしない
+            if (card.classList.contains('matched') || flippedCards.length === 2) {
+                return;
+            }
+    
+            // カードをめくる
+            card.innerHTML = pairs[index].text;
+            card.classList.add('flipped');
+            flippedCards.push({ card, index });
+    
+            if (flippedCards.length === 2) {
+                checkMatch();
+            }
+        }
+    
+        function checkMatch() {
+            const [first, second] = flippedCards;
+            if (pairs[first.index].text === pairs[second.index].text) {
+                first.card.classList.add('matched');
+                second.card.classList.add('matched');
+                matchedCards += 2;
+                flippedCards = [];
+                if (matchedCards === pairs.length) {
+                    alert('Congratulations! You matched all the pairs!');
+                }
+            } else {
+                setTimeout(() => {
+                    first.card.innerHTML = '';
+                    second.card.innerHTML = '';
+                    first.card.classList.remove('flipped');
+                    second.card.classList.remove('flipped');
+                    flippedCards = [];
+                }, 1000);
+            }
+        }
+    
+        // スタートボタンのイベントリスナー
+        document.getElementById('start-game').addEventListener('click', startGame);
+    
+        // ファイル入力イベント
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    parsePairs(event.target.result);
+                    alert('File loaded! Start the game.');
+                };
+                reader.readAsText(file);
+            }
+        });
+    </script>
+    
+</body>
+</html>

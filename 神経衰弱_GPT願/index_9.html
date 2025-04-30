@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神経衰弱ゲーム</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #e0f7fa;
+        }
+        #game-board {
+            display: grid;
+            gap: 10px;
+            justify-content: center;
+            align-content: center;
+            margin-top: 20px;
+            max-width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 10px;
+        }
+        .card {
+            width: 150px;
+            height: 60px;
+            background-color: lightgray;
+            border: 2px solid #90a4ae;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            cursor: pointer;
+            text-transform: capitalize;
+        }
+        .card.flipped {
+            background-color: white;
+            pointer-events: none;
+        }
+        .card.matched {
+            background-color: #d3d3d3;
+            pointer-events: none;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>神経衰弱ゲーム</h1>
+    <div id="controls">
+        <label for="mode">モード:</label>
+        <select id="mode">
+            <option value="random">ランダム</option>
+            <option value="ascending">昇順</option>
+        </select>
+        <label for="pair-count">ペア数:</label>
+        <select id="pair-count">
+            <option value="max">すべて</option>
+        </select>
+        <div id="range-controls" style="display: none;">
+            <label for="start-range">開始行:</label>
+            <input type="number" id="start-range" min="1" value="1">
+            <label for="end-range">終了行:</label>
+            <input type="number" id="end-range" min="1" value="50">
+        </div>
+        <label>
+            <input type="checkbox" id="use-file"> 外部ファイルを使用
+        </label>
+        <input type="file" id="file-input" accept=".txt" style="display: none;">
+        <button id="start-game">ゲーム開始</button>
+    </div>
+    <div id="game-board"></div>
+    <div id="game-status" style="display: none; font-size: 24px; color: green; margin-top: 20px;">ゲームクリア！</div>
+
+    <script>
+        let pairs = [];
+        const board = document.getElementById('game-board');
+        const fileInput = document.getElementById('file-input');
+        const useFileCheckbox = document.getElementById('use-file');
+        const pairCountSelect = document.getElementById('pair-count');
+        const modeSelect = document.getElementById('mode');
+        const rangeControls = document.getElementById('range-controls');
+        const startRangeInput = document.getElementById('start-range');
+        const endRangeInput = document.getElementById('end-range');
+        const gameStatus = document.getElementById('game-status');
+
+        // Populate pair count options
+        for (let i = 1; i <= 50; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            pairCountSelect.appendChild(option);
+        }
+
+        useFileCheckbox.addEventListener('change', (e) => {
+            fileInput.style.display = e.target.checked ? 'inline' : 'none';
+        });
+
+        modeSelect.addEventListener('change', (e) => {
+            rangeControls.style.display = e.target.value === 'ascending' ? 'block' : 'none';
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    parsePairs(event.target.result);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function parsePairs(text) {
+            pairs = text
+                .split('\n')
+                .map(line => line.trim().split(','))
+                .filter(pair => pair.length === 2 && pair[0] && pair[1]); // Ensure valid pairs
+        }
+
+        document.getElementById('start-game').addEventListener('click', () => {
+            const mode = modeSelect.value;
+            const pairCountValue = pairCountSelect.value;
+
+            let pairCount = pairs.length;
+            if (pairCountValue !== 'max') {
+                pairCount = parseInt(pairCountValue);
+            }
+
+            let selectedPairs;
+            if (mode === 'ascending') {
+                const start = Math.max(0, parseInt(startRangeInput.value) - 1);
+                const end = Math.min(pairs.length, parseInt(endRangeInput.value));
+                selectedPairs = pairs.slice(start, end).slice(0, pairCount);
+            } else {
+                selectedPairs = [...pairs].sort(() => Math.random() - 0.5).slice(0, pairCount);
+            }
+
+            if (selectedPairs.length < pairCount) {
+                alert('指定されたペア数が不足しています！');
+                return;
+            }
+
+            const gamePairs = selectedPairs.flatMap(([word, reading]) => [
+                { value: formatRuby(word, reading), pairId: word + reading },
+                { value: formatRuby(reading, word), pairId: word + reading }
+            ]);
+
+            setupBoard(gamePairs.sort(() => Math.random() - 0.5));
+        });
+
+        function formatRuby(text, ruby) {
+            return text.includes('|') ? text : `｜${text}《${ruby}》`;
+        }
+
+        function setupBoard(gamePairs) {
+            board.innerHTML = '';
+            gameStatus.style.display = 'none';
+
+            const updateGrid = () => {
+                const windowWidth = window.innerWidth;
+                const columns = Math.max(2, Math.min(10, Math.floor(windowWidth / 170)));
+                board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+            };
+
+            updateGrid();
+            window.addEventListener('resize', updateGrid);
+
+            gamePairs.forEach(cardData => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.pairId = cardData.pairId;
+                card.dataset.value = cardData.value;
+                card.innerHTML = '';
+                card.addEventListener('click', handleCardClick);
+                board.appendChild(card);
+            });
+        }
+
+        let firstCard = null;
+        let lockBoard = false;
+        let matchedPairs = 0;
+
+        function handleCardClick(e) {
+            if (lockBoard) return;
+            const card = e.target;
+
+            card.classList.add('flipped');
+            card.innerHTML = card.dataset.value;
+
+            if (!firstCard) {
+                firstCard = card;
+            } else {
+                if (firstCard.dataset.pairId === card.dataset.pairId && firstCard !== card) {
+                    // Correct match
+                    firstCard.classList.add('matched');
+                    card.classList.add('matched');
+                    matchedPairs++;
+
+                    if (matchedPairs === pairs.length) {
+                        gameStatus.style.display = 'block';
+                    }
+
+                    firstCard = null;
+                } else {
+                    // Incorrect match
+                    lockBoard = true;
+                    setTimeout(() => {
+                        firstCard.classList.remove('flipped');
+                        firstCard.innerHTML = '';
+                        card.classList.remove('flipped');
+                        card.innerHTML = '';
+                        firstCard = null;
+                        lockBoard = false;
+                    }, 1000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

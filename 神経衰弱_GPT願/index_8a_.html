@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Game</title>
+    <script src="Ruby.js" defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #e0f7fa;
+        }
+        #game-board {
+            display: grid;
+            gap: 10px;
+            justify-content: center;
+            align-content: center;
+            margin-top: 20px;
+            max-width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 10px;
+        }
+        .card {
+            width: 150px;
+            height: 60px;
+            background-color: lightgray;
+            border: 2px solid #90a4ae;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            cursor: pointer;
+            text-transform: capitalize;
+            position: relative;
+        }
+        .card.flipped {
+            background-color: white;
+            pointer-events: none;
+        }
+        .card.matched {
+            background-color: #d3d3d3;
+            pointer-events: none;
+        }
+        .card .text {
+            visibility: hidden; /* Initially hide text */
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Memory Game</h1>
+    <div id="controls">
+        <label for="mode">Mode:</label>
+        <select id="mode">
+            <option value="random">Random</option>
+            <option value="ascending">Ascending</option>
+        </select>
+        <label for="pair-count">Number of Pairs:</label>
+        <select id="pair-count">
+            <option value="max">MAX</option>
+        </select>
+        <label>
+            <input type="checkbox" id="use-file"> Use External File
+        </label>
+        <input type="file" id="file-input" accept=".txt" style="display: none;">
+        <button id="start-game">Start Game</button>
+    </div>
+    <div id="game-board"></div>
+
+    <script>
+        let pairs = [];
+        const board = document.getElementById('game-board');
+        const fileInput = document.getElementById('file-input');
+        const useFileCheckbox = document.getElementById('use-file');
+        const pairCountSelect = document.getElementById('pair-count');
+
+        // Populate pair count options
+        for (let i = 1; i <= 50; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            pairCountSelect.appendChild(option);
+        }
+
+        useFileCheckbox.addEventListener('change', (e) => {
+            fileInput.style.display = e.target.checked ? 'inline' : 'none';
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    parsePairs(event.target.result);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function parsePairs(text) {
+            pairs = text
+                .split('\n')
+                .map(line => line.trim().split(','))
+                .filter(pair => pair.length === 2); // Ensure valid pairs
+        }
+
+        document.getElementById('start-game').addEventListener('click', () => {
+            const mode = document.getElementById('mode').value;
+            const pairCountValue = pairCountSelect.value;
+
+            let pairCount = pairs.length;
+            if (pairCountValue !== 'max') {
+                pairCount = parseInt(pairCountValue);
+            }
+
+            if (pairs.length < pairCount) {
+                alert('Not enough pairs available!');
+                return;
+            }
+
+            let selectedPairs;
+            if (mode === 'ascending') {
+                selectedPairs = pairs.slice(0, pairCount);
+            } else {
+                selectedPairs = [...pairs].sort(() => Math.random() - 0.5).slice(0, pairCount);
+            }
+
+            const gamePairs = selectedPairs.flatMap(([word, reading]) => [
+                { value: word, pairId: word + reading },
+                { value: reading, pairId: word + reading }
+            ]);
+
+            setupBoard(gamePairs.sort(() => Math.random() - 0.5));
+        });
+
+        function setupBoard(gamePairs) {
+            board.innerHTML = '';
+
+            const windowWidth = window.innerWidth;
+            const columns = Math.max(2, Math.min(10, Math.floor(windowWidth / 170)));
+            board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+
+            gamePairs.forEach(cardData => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.pairId = cardData.pairId;
+
+                // Create text element for ruby text and make it hidden initially
+                const text = document.createElement('div');
+                text.classList.add('text');
+                text.innerHTML = `<ruby>${cardData.value}<rt>${cardData.value}</rt></ruby>`; // For Ruby-style text
+                card.appendChild(text);
+
+                card.addEventListener('click', handleCardClick);
+                board.appendChild(card);
+            });
+        }
+
+        let firstCard = null;
+        let lockBoard = false;
+
+        function handleCardClick(e) {
+            if (lockBoard) return;
+            const card = e.target;
+
+            card.classList.add('flipped');
+            const text = card.querySelector('.text');
+            text.style.visibility = 'visible'; // Show text when flipped
+
+            if (!firstCard) {
+                firstCard = card;
+            } else {
+                if (firstCard.dataset.pairId === card.dataset.pairId && firstCard !== card) {
+                    // Correct match
+                    firstCard.classList.add('matched');
+                    card.classList.add('matched');
+                    firstCard = null;
+                } else {
+                    // Incorrect match
+                    lockBoard = true;
+                    setTimeout(() => {
+                        firstCard.classList.remove('flipped');
+                        firstCard.querySelector('.text').style.visibility = 'hidden'; // Hide text again
+                        firstCard = null;
+                        card.classList.remove('flipped');
+                        card.querySelector('.text').style.visibility = 'hidden'; // Hide text again
+                        lockBoard = false;
+                    }, 1000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

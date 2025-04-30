@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神経衰弱ゲーム</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e0f7fa;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            margin: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #board {
+            display: grid;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .card {
+            width: 100px;
+            height: 50px;
+            background-color: white;
+            border: 1px solid #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .card.matched {
+            background-color: #d3d3d3;
+            cursor: default;
+        }
+        .hidden {
+            visibility: hidden;
+        }
+        .file-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .file-list {
+            max-height: 100px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 5px;
+        }
+        .game-clear {
+            font-size: 24px;
+            color: green;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>神経衰弱ゲーム</h1>
+    <div class="controls">
+        <label for="range-start">開始行:</label>
+        <input type="number" id="range-start" min="1" value="1">
+        <label for="range-end">終了行:</label>
+        <input type="number" id="range-end" min="1" value="10">
+        <button id="start-game">ゲーム開始</button>
+    </div>
+    <div class="file-controls">
+        <button id="refresh-files">ファイル一覧更新</button>
+        <select id="file-list" size="5"></select>
+    </div>
+    <div id="board"></div>
+    <div id="game-clear" class="game-clear hidden">Game Clear!</div>
+
+    <script>
+        const board = document.getElementById('board');
+        const startButton = document.getElementById('start-game');
+        const fileList = document.getElementById('file-list');
+        const refreshFilesButton = document.getElementById('refresh-files');
+        const rangeStartInput = document.getElementById('range-start');
+        const rangeEndInput = document.getElementById('range-end');
+        const gameClearMessage = document.getElementById('game-clear');
+
+        let pairs = [];
+        let selectedCards = [];
+        let matchedPairs = 0;
+
+        function parsePairs(data) {
+            return data.split('\n').filter(line => line.trim() !== '').map(line => {
+                const [word, reading] = line.split(',');
+                return [
+                    word.replace(/｜([^《]+)《([^》]+)》/g, '<ruby>$1<rt>$2</rt></ruby>'),
+                    reading.replace(/｜([^《]+)《([^》]+)》/g, '<ruby>$1<rt>$2</rt></ruby>')
+                ];
+            });
+        }
+
+        function loadFile(file) {
+            fetch(file)
+                .then(response => response.text())
+                .then(data => {
+                    pairs = parsePairs(data);
+                    updateRangeInputs();
+                })
+                .catch(err => alert('ファイル読み込みに失敗しました: ' + err));
+        }
+
+        function updateRangeInputs() {
+            rangeStartInput.max = pairs.length;
+            rangeEndInput.max = pairs.length;
+        }
+
+        function refreshFileList() {
+            fetch('.')
+                .then(response => response.text())
+                .then(data => {
+                    const parser = new DOMParser();
+                    const htmlDoc = parser.parseFromString(data, 'text/html');
+                    const files = Array.from(htmlDoc.querySelectorAll('a'))
+                        .map(link => link.href.split('/').pop())
+                        .filter(name => name.endsWith('.txt'));
+                    fileList.innerHTML = '';
+                    files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.textContent = file;
+                        fileList.appendChild(option);
+                    });
+                })
+                .catch(err => alert('ファイル一覧の取得に失敗しました: ' + err));
+        }
+
+        function startGame() {
+            gameClearMessage.classList.add('hidden');
+            board.innerHTML = '';
+
+            const start = parseInt(rangeStartInput.value, 10) - 1;
+            const end = parseInt(rangeEndInput.value, 10);
+            const selectedPairs = pairs.slice(start, end);
+            const cards = selectedPairs.flat().sort(() => Math.random() - 0.5);
+
+            matchedPairs = 0;
+            board.style.gridTemplateColumns = `repeat(auto-fit, minmax(100px, 1fr))`;
+
+            cards.forEach((content, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.index = index;
+                card.dataset.content = content;
+                card.textContent = '';
+                card.addEventListener('click', () => flipCard(card));
+                board.appendChild(card);
+            });
+        }
+
+        function flipCard(card) {
+            if (card.classList.contains('matched') || selectedCards.includes(card)) {
+                return;
+            }
+
+            card.innerHTML = card.dataset.content;
+            selectedCards.push(card);
+
+            if (selectedCards.length === 2) {
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const [card1, card2] = selectedCards;
+
+            if (card1.dataset.content === card2.dataset.content) {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedPairs++;
+
+                if (matchedPairs === pairs.length) {
+                    gameClearMessage.classList.remove('hidden');
+                }
+            } else {
+                setTimeout(() => {
+                    card1.innerHTML = '';
+                    card2.innerHTML = '';
+                }, 1000);
+            }
+
+            selectedCards = [];
+        }
+
+        startButton.addEventListener('click', startGame);
+        refreshFilesButton.addEventListener('click', refreshFileList);
+        fileList.addEventListener('change', () => loadFile(fileList.value));
+
+        refreshFileList();
+    </script>
+</body>
+</html>

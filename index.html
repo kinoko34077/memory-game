@@ -1,53 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memory Game with Ruby</title>
-  <link rel="stylesheet" href="fixed-style.css" />
-
-  <script src="ruby.js" defer></script>
-  <script src="game.js" defer></script>
-  <script src="settings-panel.js" defer></script>
+<meta charset="UTF-8">
+<title>神経衰弱</title>
+<link rel="stylesheet" href="style-reset.css">
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <div class="sidebar">
-    <h1>Memory Game</h1>
-    <div id="controls">
-      <label for="mode">Mode:</label>
-      <select id="mode">
-        <option value="random">Random</option>
-        <option value="ascending">Ascending</option>
-      </select>
 
-      <label for="pair-count">Number of Pairs:</label>
-      <select id="pair-count">
-        <option value="max">MAX</option>
-      </select>
+<body ontouchstart="">
 
-      <label>
-        <input type="checkbox" id="use-file" /> Use External File
-      </label>
-      <input type="file" id="file-input" accept=".txt" style="display: none" />
+<noscript style="text-align:center;margin:20px;font-size:40px;"><p>ゲームを遊ぶためにはJavaScriptが必要です。JavaScriptを<span style="font-size:80px">オン</span>にしてください!</p></noscript>
 
-      <label>
-        <input type="checkbox" id="show-ruby" checked /> Show Ruby
-      </label>
+<div id="title" class="board">
+	<h1>神経衰弱</h1>
+	<div class="radios">
+		<p class="heading">先手か後手かを選んでください</p><br>
+		<input type="radio" name="order" class="order" id="ord1" value="first"><label for="ord1" onclick="">先手</label>
+		<input type="radio" name="order" class="order" id="ord2" value="second"><label for="ord2" onclick="">後手</label>
+		<p class="balloon" id="alertorder">先手か後手かを選んでいません！</p>
+	</div>
 
-      <label>
-        <input type="checkbox" id="enable-timer" checked />
-        タイマーモード
-      </label>
+	<div class="radios">
+		<p class="heading">相手の強さを選んでください</p><br>
+		<input type="radio" name="AIlevel" id="lev1" value="beginner" class="AIlevel"><label for="lev1" onclick="">初級</label>
+		<input type="radio" name="AIlevel" id="lev2" value="middle" class="AIlevel"><label for="lev2" onclick="">中級</label>
+		<input type="radio" name="AIlevel" id="lev3" value="higher" class="AIlevel"><label for="lev3" onclick="">上級</label>
+		<p class="balloon" id="alertlevel">相手のレベルを選んでいません！</p>
+	</div>
+	<button type="button" id="startbtn" class="disabled">始める</button>
+</div>
 
-      <button id="start-game">Start Game</button>
-    </div>
+<div class="board" id="game">
+	<h1>神経衰弱</h1>
 
-    <div id="settings-panel" style="display: none;"></div>
-    <div id="log-area"></div>
-  </div>
+	<div id="comscore">
+		相手：<span id="comcount">0</span>枚
+	</div>
 
-  <div class="main">
-    <div id="game-board"></div>
-  </div>
+	<div class="toolbar">
+		<span id="turn">あなたの番です</span>
+		<button id="restartbtn">もう一度始める</button>
+		<button id="backtitle">タイトルに戻る</button>
+	</div>
+
+	<div id="cards"></div>
+
+	<div id="plscore">
+		プレイヤー：<span id="plcount">0</span>枚
+	</div>
+
+	<div id="gameset"></div>
+</div>
+
+<script src="main.js"></script>
+
 </body>
 </html>
