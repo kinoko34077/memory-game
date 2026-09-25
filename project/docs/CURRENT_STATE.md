@@ -2,14 +2,20 @@
 
 Base version: `0.3.8`
 
-Last verified: 2026-09-23 — KiNoTch Base v0.3.8 Canary adoption
+Last verified: 2026-09-26 — interaction/state maintenance audit
 
 ## Implemented
 
 - Repository-local KiNoTch Base v0.3.8 and Project Overlay
 - `web-app` Surface declaration
-- Existing static HTML, CSS, and JavaScript game files retained
-- Existing Domain files remain at their original root paths; no bulk move was performed
+- Existing static HTML, CSS, and JavaScript game implementation retained
+- Pair data can use the bundled `pair.txt` or an external `.txt` / `.csv` file
+- Default/external pair loading uses generation guards so stale asynchronous loads do not overwrite the active source
+- One reachable settings panel provides save/import/export controls
+- Primary `Show Ruby` and timer controls feed the game settings they label
+- New-round setup clears transient card-revert state and active timers
+- Pair identity is assigned per selected source row rather than by concatenating card text
+- Project-owned behavior regression verification is registered for `knt test` / `knt verify`
 
 ## Default state
 
@@ -17,19 +23,21 @@ Last verified: 2026-09-23 — KiNoTch Base v0.3.8 Canary adoption
 
 ## Known constraints
 
-- Game rules, browser state, and presentation remain Project-owned.
-- This repository has no setup/test/build command registered; `knt verify` is
-  intentionally a no-op until a Project-owned check is defined.
-- No PWA, CI, or framework Default is inferred from the static files alone.
+- Game rules, browser state, presentation, and pair-data format remain Project-owned.
+- The behavior suite uses Node built-ins and a minimal DOM/event harness; it verifies the maintained interaction/state boundaries but is not a full browser compatibility suite.
+- This repository still has no Project-owned build or deploy command.
+- No PWA or framework Default is inferred from the static files alone.
 
 ## Next work
 
-1. Preserve the existing browser implementation as a Project override.
-2. Add Project-specific verification only when a real check is defined.
-3. Consider further Default adoption only where it removes a real duplicate.
+1. Preserve the existing browser game and pair-file format as the Project override.
+2. Extend the behavior suite only when a concrete regression or browser interaction requires coverage.
+3. Treat framework/PWA/build-system changes as explicit future work rather than maintenance inference.
 
 ## Verification
 
 - `knt doctor`
 - `knt base-check`
+- `knt test`
 - `knt verify`
+- Project command: `node --experimental-default-type=module --test project/tests/memory-game-behavior.test.mjs`
