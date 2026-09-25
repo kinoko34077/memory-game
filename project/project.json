@@ -24,9 +24,9 @@
   "commands": {
     "setup": "",
     "dev": "",
-    "test": "",
+    "test": "node --experimental-default-type=module --test project/tests/memory-game-behavior.test.mjs",
     "build": "",
-    "verify": "",
+    "verify": "node --experimental-default-type=module --test project/tests/memory-game-behavior.test.mjs",
     "smoke": "",
     "deploy": ""
   },
@@ -38,6 +38,7 @@
   },
   "notes": [
     "This adoption adds the KiNoTch Base and Project Overlay without moving the existing browser files.",
-    "The static game implementation remains Project-owned."
+    "The static game implementation remains Project-owned.",
+    "Project-owned behavior verification uses Node built-ins only and exercises existing browser interaction/state paths with a minimal DOM harness."
   ]
 }
