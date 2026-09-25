@@ -1,15 +1,15 @@
-import { convertRubyText, renderRubyToElement } from './ruby.js';
-import { setupSettingsPanel, loadSettings, getCurrentSettings } from './settings-panel.js';
+import { renderRubyToElement } from './ruby.js';
+import { setupSettingsPanel, getCurrentSettings } from './settings-panel.js';
 
 let pairs = [];
 let fileLoaded = false;
+let pairLoadGeneration = 0;
 const DEBUG = true;
 
 const board = document.getElementById('game-board');
 const fileInput = document.getElementById('file-input');
 const useFileCheckbox = document.getElementById('use-file');
 const pairCountSelect = document.getElementById('pair-count');
-const rubyToggle = document.getElementById('show-ruby');
 const startButton = document.getElementById('start-game');
 const logArea = document.getElementById('log-area');
 
@@ -31,6 +31,7 @@ let timerInterval;
 let timeCounter = 0;
 let currentTimerMode = enumTimerMode.OFF;
 let settings = {};
+let revertTimeout = null;
 
 function logDebug(message, ...optional) {
   if (DEBUG) console.log(`[DEBUG] ${message}`, ...optional);
@@ -43,8 +44,16 @@ function logUserAction(text) {
   logArea.scrollTop = logArea.scrollHeight;
 }
 
-function startTimer(mode) {
+function stopTimer() {
   clearInterval(timerInterval);
+  timerInterval = undefined;
+  currentTimerMode = enumTimerMode.OFF;
+  timeCounter = 0;
+  timerDisplay.textContent = '';
+}
+
+function startTimer(mode) {
+  stopTimer();
   currentTimerMode = mode;
   timeCounter = mode === enumTimerMode.COUNTDOWN ? settings.countdownSeconds : 0;
   updateTimerDisplay();
@@ -55,6 +64,7 @@ function startTimer(mode) {
       updateTimerDisplay();
       if (timeCounter <= 0) {
         clearInterval(timerInterval);
+        timerInterval = undefined;
         alert('時間切れ！');
       }
     } else if (mode === enumTimerMode.UP) {
@@ -65,7 +75,7 @@ function startTimer(mode) {
 }
 
 function updateTimerDisplay() {
-  if (!settings.alwaysShowTime && currentTimerMode === enumTimerMode.OFF) {
+  if (currentTimerMode === enumTimerMode.OFF) {
     timerDisplay.textContent = '';
     return;
   }
@@ -88,25 +98,24 @@ function parsePairs(text) {
 }
 
 function parsePairsWithRuby(text) {
-  const base = parsePairs(text);
-  return base.map(([a, b]) => [
-    convertRubyText(a),
-    convertRubyText(b)
-  ]);
+  return parsePairs(text);
 }
 
 function loadDefaultPairs() {
+  const generation = ++pairLoadGeneration;
   fetch('pair.txt')
     .then(response => {
       if (!response.ok) throw new Error('ファイルの取得に失敗しました');
       return response.text();
     })
     .then(text => {
+      if (generation !== pairLoadGeneration || useFileCheckbox.checked) return;
       pairs = parsePairsWithRuby(text);
       fileLoaded = true;
       logDebug('pair.txt を読み込みました', pairs);
     })
     .catch(err => {
+      if (generation !== pairLoadGeneration || useFileCheckbox.checked) return;
       console.warn('pair.txt の読み込みに失敗。フォールバックに切り替え：', err);
       const fallbackText = `｜洋弓《ようきゅう》,アーチェリー\n｜氷球《ひょうきゅう》,アイスホッケー`;
       pairs = parsePairsWithRuby(fallbackText);
@@ -115,7 +124,18 @@ function loadDefaultPairs() {
     });
 }
 
+function resetBoard() {
+  firstCard = null;
+  lockBoard = false;
+}
+
 function setupBoard(gamePairs) {
+  if (revertTimeout !== null) {
+    clearTimeout(revertTimeout);
+    revertTimeout = null;
+  }
+  resetBoard();
+  stopTimer();
   board.innerHTML = '';
 
   const windowWidth = window.innerWidth;
@@ -141,7 +161,9 @@ function setupBoard(gamePairs) {
   });
 
   logDebug('描画完了', { cardCount: gamePairs.length });
-  if (settings.countdownSeconds > 0 || settings.alwaysShowTime) startTimer(settings.countdownSeconds > 0 ? enumTimerMode.COUNTDOWN : enumTimerMode.UP);
+  if (settings.timerEnabled && (settings.countdownSeconds > 0 || settings.alwaysShowTime)) {
+    startTimer(settings.countdownSeconds > 0 ? enumTimerMode.COUNTDOWN : enumTimerMode.UP);
+  }
 }
 
 let firstCard = null;
@@ -158,35 +180,32 @@ function handleCardClick(e) {
 
   if (!firstCard) {
     firstCard = card;
-  } else {
-    if (firstCard.dataset.pairId === card.dataset.pairId && firstCard !== card) {
-      firstCard.classList.add('matched');
-      card.classList.add('matched');
+  } else if (firstCard.dataset.pairId === card.dataset.pairId && firstCard !== card) {
+    const matchedFirst = firstCard;
+    const matchedSecond = card;
+    matchedFirst.classList.add('matched');
+    matchedSecond.classList.add('matched');
 
-      if (settings.pairRemoveMode === 'hide') {
-        setTimeout(() => {
-          firstCard.innerHTML = '';
-          card.innerHTML = '';
-          firstCard.classList.add('removed');
-          card.classList.add('removed');
-        }, 300);
-      }
-
-      resetBoard();
-    } else {
-      lockBoard = true;
+    if (settings.pairRemoveMode === 'hide') {
       setTimeout(() => {
-        firstCard.classList.remove('flipped');
-        card.classList.remove('flipped');
-        resetBoard();
-      }, settings.revertDelay);
+        matchedFirst.innerHTML = '';
+        matchedSecond.innerHTML = '';
+        matchedFirst.classList.add('removed');
+        matchedSecond.classList.add('removed');
+      }, 300);
     }
-  }
-}
 
-function resetBoard() {
-  firstCard = null;
-  lockBoard = false;
+    resetBoard();
+  } else {
+    const previousCard = firstCard;
+    lockBoard = true;
+    revertTimeout = setTimeout(() => {
+      previousCard.classList.remove('flipped');
+      card.classList.remove('flipped');
+      revertTimeout = null;
+      resetBoard();
+    }, settings.revertDelay);
+  }
 }
 
 // 初期設定
@@ -200,7 +219,10 @@ for (let i = 1; i <= 50; i++) {
 useFileCheckbox.addEventListener('change', (e) => {
   const useFile = e.target.checked;
   fileInput.style.display = useFile ? 'inline' : 'none';
+  fileInput.value = '';
+
   if (useFile) {
+    pairLoadGeneration++;
     pairs = [];
     fileLoaded = false;
     logDebug('ファイルモードへ切替：ペア初期化');
@@ -211,23 +233,25 @@ useFileCheckbox.addEventListener('change', (e) => {
 
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target.result;
-      logDebug('ファイル読込成功', result);
-      const parsed = parsePairsWithRuby(result);
-      if (parsed.length > 0) {
-        pairs = parsed;
-        fileLoaded = true;
-        logDebug('ファイルからペア読み込み成功', pairs);
-      } else {
-        alert("ファイルに有効なペアが含まれていません");
-        fileLoaded = false;
-      }
-    };
-    reader.readAsText(file);
-  }
+  if (!file) return;
+
+  const generation = ++pairLoadGeneration;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    if (generation !== pairLoadGeneration || !useFileCheckbox.checked) return;
+    const result = event.target.result;
+    logDebug('ファイル読込成功', result);
+    const parsed = parsePairsWithRuby(result);
+    if (parsed.length > 0) {
+      pairs = parsed;
+      fileLoaded = true;
+      logDebug('ファイルからペア読み込み成功', pairs);
+    } else {
+      alert('ファイルに有効なペアが含まれていません');
+      fileLoaded = false;
+    }
+  };
+  reader.readAsText(file);
 });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -277,10 +301,13 @@ startButton.addEventListener('click', () => {
     selectedPairs = [...pairs].sort(() => Math.random() - 0.5).slice(0, pairCount);
   }
 
-  const gamePairs = selectedPairs.flatMap(([word, reading]) => [
-    { value: word, reading: reading, pairId: word + reading },
-    { value: reading, reading: word, pairId: word + reading }
-  ]);
+  const gamePairs = selectedPairs.flatMap(([word, reading], pairIndex) => {
+    const pairId = `pair-${pairIndex}`;
+    return [
+      { value: word, reading, pairId },
+      { value: reading, reading: word, pairId }
+    ];
+  });
 
   setupBoard(gamePairs.sort(() => Math.random() - 0.5));
 });
