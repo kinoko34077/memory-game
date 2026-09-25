@@ -6,7 +6,7 @@ Last verified: 2026-09-23 — KiNoTch Base v0.3.8 Canary adoption
 
 ## Implemented
 
-- Repository-local KiNoTch Base v0.3.5 and Project Overlay
+- Repository-local KiNoTch Base v0.3.8 and Project Overlay
 - `web-app` Surface declaration
 - Existing static HTML, CSS, and JavaScript game files retained
 - Existing Domain files remain at their original root paths; no bulk move was performed
