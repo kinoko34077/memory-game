@@ -29,7 +29,8 @@
       "args": [
         "--experimental-default-type=module",
         "--test",
-        "project/tests/memory-game-behavior.test.mjs"
+        "project/tests/memory-game-behavior.test.mjs",
+        "project/tests/ruby-rendering.test.mjs"
       ],
       "cwd": "."
     },
@@ -39,7 +40,8 @@
       "args": [
         "--experimental-default-type=module",
         "--test",
-        "project/tests/memory-game-behavior.test.mjs"
+        "project/tests/memory-game-behavior.test.mjs",
+        "project/tests/ruby-rendering.test.mjs"
       ],
       "cwd": "."
     },
@@ -56,6 +58,7 @@
     "This adoption adds the KiNoTch Base and Project Overlay without moving the existing browser files.",
     "The static game implementation remains Project-owned.",
     "Project-owned behavior verification uses Node built-ins only and exercises existing browser interaction/state paths with a minimal DOM harness.",
-    "Behavior verification explicitly runs from the repository root so root-owned browser modules are loaded through their real relative import paths."
+    "Behavior verification explicitly runs from the repository root so root-owned browser modules are loaded through their real relative import paths.",
+    "Ruby rendering verification checks imported markup escaping while preserving controlled ruby output."
   ]
 }
