@@ -11,8 +11,12 @@ export function setupSettingsPanel() {
   settingsButton.textContent = '⚙️ 設定';
   settingsButton.style.marginLeft = '10px';
 
-  const settingsPanel = document.createElement('div');
-  settingsPanel.id = 'settings-panel';
+  let settingsPanel = document.getElementById('settings-panel');
+  if (!settingsPanel) {
+    settingsPanel = document.createElement('div');
+    settingsPanel.id = 'settings-panel';
+    controls.appendChild(settingsPanel);
+  }
   settingsPanel.style.border = '1px solid #ccc';
   settingsPanel.style.padding = '10px';
   settingsPanel.style.marginTop = '10px';
@@ -20,7 +24,6 @@ export function setupSettingsPanel() {
   settingsPanel.style.backgroundColor = '#f9f9f9';
 
   settingsPanel.innerHTML = `
-    <label><input type="checkbox" id="set-show-ruby" /> ルビを表示</label><br/>
     <label>裏返しに戻すまでの時間（ms）: <input type="number" id="set-revert-delay" value="1000" min="100" step="100" /></label><br/>
     <label>揃ったペアの処理: 
       <select id="set-pair-remove">
@@ -34,7 +37,9 @@ export function setupSettingsPanel() {
   `;
 
   controls.appendChild(settingsButton);
-  controls.appendChild(settingsPanel);
+  settingsButton.addEventListener('click', () => {
+    settingsPanel.style.display = settingsPanel.style.display === 'none' ? 'block' : 'none';
+  });
 
   const saveBtn = document.createElement('button');
   saveBtn.id = 'save-settings';
@@ -67,12 +72,18 @@ export function setupSettingsPanel() {
     reader.onload = () => {
       const iniText = reader.result;
       loadSettingsFromIni(iniText);
-      saveSettings(); // 同時保存
+      saveSettings();
     };
     reader.readAsText(file);
   });
 
-  settingsPanel.querySelectorAll('input, select').forEach(el => {
+  const autosaveControls = [
+    ...settingsPanel.querySelectorAll('input, select'),
+    document.getElementById('show-ruby'),
+    document.getElementById('enable-timer')
+  ].filter(Boolean);
+
+  autosaveControls.forEach(el => {
     el.addEventListener('change', () => {
       saveSettings();
       console.log('[DEBUG] 設定変更を検知して保存', getCurrentSettings());
@@ -88,7 +99,10 @@ export function loadSettings() {
   if (!saved) return;
   try {
     const settings = JSON.parse(saved);
-    document.getElementById('set-show-ruby').checked = settings.showRuby ?? true;
+    const showRuby = document.getElementById('show-ruby');
+    const enableTimer = document.getElementById('enable-timer');
+    if (showRuby) showRuby.checked = settings.showRuby ?? true;
+    if (enableTimer) enableTimer.checked = settings.timerEnabled ?? true;
     document.getElementById('set-revert-delay').value = settings.revertDelay ?? 1000;
     document.getElementById('set-pair-remove').value = settings.pairRemoveMode ?? 'grey';
     document.getElementById('set-font-size').value = settings.fontSize ?? 18;
@@ -107,7 +121,8 @@ export function saveSettings() {
 
 export function getCurrentSettings() {
   return {
-    showRuby: document.getElementById('set-show-ruby')?.checked ?? true,
+    showRuby: document.getElementById('show-ruby')?.checked ?? true,
+    timerEnabled: document.getElementById('enable-timer')?.checked ?? true,
     revertDelay: parseInt(document.getElementById('set-revert-delay')?.value || 1000),
     pairRemoveMode: document.getElementById('set-pair-remove')?.value || 'grey',
     fontSize: parseInt(document.getElementById('set-font-size')?.value || 18),
@@ -121,6 +136,7 @@ export function loadSettingsFromIni(iniText) {
   const data = {};
   for (const line of lines) {
     const [key, valueRaw] = line.split('=').map(s => s.trim());
+    if (!key || valueRaw === undefined) continue;
     let value = valueRaw;
     if (value === 'true') value = true;
     else if (value === 'false') value = false;
@@ -128,7 +144,8 @@ export function loadSettingsFromIni(iniText) {
     data[key] = value;
   }
 
-  if ('showRuby' in data) document.getElementById('set-show-ruby').checked = data.showRuby;
+  if ('showRuby' in data) document.getElementById('show-ruby').checked = data.showRuby;
+  if ('timerEnabled' in data) document.getElementById('enable-timer').checked = data.timerEnabled;
   if ('revertDelay' in data) document.getElementById('set-revert-delay').value = data.revertDelay;
   if ('pairRemoveMode' in data) document.getElementById('set-pair-remove').value = data.pairRemoveMode;
   if ('fontSize' in data) document.getElementById('set-font-size').value = data.fontSize;
