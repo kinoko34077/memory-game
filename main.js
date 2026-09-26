@@ -32,6 +32,7 @@ let timeCounter = 0;
 let currentTimerMode = enumTimerMode.OFF;
 let settings = {};
 let revertTimeout = null;
+let roundCompleted = false;
 
 function logDebug(message, ...optional) {
   if (DEBUG) console.log(`[DEBUG] ${message}`, ...optional);
@@ -42,6 +43,26 @@ function logUserAction(text) {
   entry.textContent = text;
   logArea.appendChild(entry);
   logArea.scrollTop = logArea.scrollHeight;
+}
+
+function setPairLoadState(state) {
+  if (state === 'loading') {
+    startButton.disabled = true;
+    startButton.textContent = '読み込み中...';
+    return;
+  }
+  if (state === 'waiting-file') {
+    startButton.disabled = true;
+    startButton.textContent = 'ファイルを選択';
+    return;
+  }
+  startButton.disabled = false;
+  startButton.textContent = 'Start Game';
+}
+
+function updateBoardColumns() {
+  const columns = Math.max(2, Math.min(10, Math.floor(window.innerWidth / 170)));
+  board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 }
 
 function stopTimer() {
@@ -103,6 +124,8 @@ function parsePairsWithRuby(text) {
 
 function loadDefaultPairs() {
   const generation = ++pairLoadGeneration;
+  fileLoaded = false;
+  setPairLoadState('loading');
   fetch('pair.txt')
     .then(response => {
       if (!response.ok) throw new Error('ファイルの取得に失敗しました');
@@ -112,6 +135,7 @@ function loadDefaultPairs() {
       if (generation !== pairLoadGeneration || useFileCheckbox.checked) return;
       pairs = parsePairsWithRuby(text);
       fileLoaded = true;
+      setPairLoadState('ready');
       logDebug('pair.txt を読み込みました', pairs);
     })
     .catch(err => {
@@ -120,6 +144,7 @@ function loadDefaultPairs() {
       const fallbackText = `｜洋弓《ようきゅう》,アーチェリー\n｜氷球《ひょうきゅう》,アイスホッケー`;
       pairs = parsePairsWithRuby(fallbackText);
       fileLoaded = true;
+      setPairLoadState('ready');
       logDebug('フォールバックペアを使用', pairs);
     });
 }
@@ -129,22 +154,33 @@ function resetBoard() {
   lockBoard = false;
 }
 
+function isRoundComplete() {
+  return board.children.length > 0 && [...board.children].every(card => card.classList.contains('matched'));
+}
+
+function completeRound() {
+  if (roundCompleted) return;
+  roundCompleted = true;
+  stopTimer();
+  logUserAction('✅ ゲーム完了！');
+}
+
 function setupBoard(gamePairs) {
   if (revertTimeout !== null) {
     clearTimeout(revertTimeout);
     revertTimeout = null;
   }
   resetBoard();
+  roundCompleted = false;
   stopTimer();
   board.innerHTML = '';
 
-  const windowWidth = window.innerWidth;
-  const columns = Math.max(2, Math.min(10, Math.floor(windowWidth / 170)));
   board.style.display = 'grid';
-  board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+  updateBoardColumns();
 
   gamePairs.forEach(cardData => {
-    const card = document.createElement('div');
+    const card = document.createElement('button');
+    card.type = 'button';
     card.classList.add('card');
     card.dataset.pairId = cardData.pairId;
     card.dataset.value = cardData.value;
@@ -170,7 +206,7 @@ let firstCard = null;
 let lockBoard = false;
 
 function handleCardClick(e) {
-  if (lockBoard) return;
+  if (lockBoard || roundCompleted) return;
   const card = e.currentTarget;
 
   if (!card.classList.contains('flipped')) {
@@ -196,6 +232,7 @@ function handleCardClick(e) {
     }
 
     resetBoard();
+    if (isRoundComplete()) completeRound();
   } else {
     const previousCard = firstCard;
     lockBoard = true;
@@ -225,17 +262,28 @@ useFileCheckbox.addEventListener('change', (e) => {
     pairLoadGeneration++;
     pairs = [];
     fileLoaded = false;
+    setPairLoadState('waiting-file');
     logDebug('ファイルモードへ切替：ペア初期化');
   } else {
     loadDefaultPairs();
   }
 });
 
+function recoverFromFileReadFailure(generation, message) {
+  if (generation !== pairLoadGeneration || !useFileCheckbox.checked) return;
+  fileLoaded = false;
+  fileInput.value = '';
+  setPairLoadState('waiting-file');
+  alert(message);
+}
+
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
   const generation = ++pairLoadGeneration;
+  fileLoaded = false;
+  setPairLoadState('loading');
   const reader = new FileReader();
   reader.onload = (event) => {
     if (generation !== pairLoadGeneration || !useFileCheckbox.checked) return;
@@ -245,11 +293,20 @@ fileInput.addEventListener('change', (e) => {
     if (parsed.length > 0) {
       pairs = parsed;
       fileLoaded = true;
+      setPairLoadState('ready');
       logDebug('ファイルからペア読み込み成功', pairs);
     } else {
       alert('ファイルに有効なペアが含まれていません');
       fileLoaded = false;
+      fileInput.value = '';
+      setPairLoadState('waiting-file');
     }
+  };
+  reader.onerror = () => {
+    recoverFromFileReadFailure(generation, 'ファイルの読み込みに失敗しました。もう一度選択してください。');
+  };
+  reader.onabort = () => {
+    recoverFromFileReadFailure(generation, 'ファイルの読み込みが中断されました。もう一度選択してください。');
   };
   reader.readAsText(file);
 });
@@ -260,10 +317,13 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.style.display = 'none';
   } else {
     fileInput.style.display = 'inline';
+    setPairLoadState('waiting-file');
   }
   setupSettingsPanel();
   settings = getCurrentSettings();
 });
+
+window.addEventListener('resize', updateBoardColumns);
 
 startButton.addEventListener('click', () => {
   settings = getCurrentSettings();

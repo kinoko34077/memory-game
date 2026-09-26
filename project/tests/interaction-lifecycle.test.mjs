@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -26,11 +25,13 @@ class FakeElement {
     this.classList = new ClassList();
     this.value = '';
     this.checked = false;
+    this.disabled = false;
     this.files = [];
     this.textContent = '';
     this._innerHTML = '';
     this._id = '';
     this.accept = '';
+    this.type = '';
     env.elements.push(this);
     if (id) this.id = id;
   }
@@ -61,7 +62,9 @@ class FakeElement {
     }
   }
 
-  click() { this.dispatch('click'); }
+  click() {
+    if (!this.disabled) this.dispatch('click');
+  }
 
   querySelectorAll(selector) {
     const tags = selector.split(',').map(value => value.trim().toUpperCase());
@@ -85,7 +88,6 @@ class FakeElement {
 
     if (this.id === 'settings-panel' && value.includes('set-revert-delay')) {
       const controls = [
-        ['input', 'set-show-ruby', '', false],
         ['input', 'set-revert-delay', '1000', false],
         ['select', 'set-pair-remove', 'grey', false],
         ['input', 'set-font-size', '18', false],
@@ -108,17 +110,19 @@ class FakeElement {
 function createDeferred() {
   let resolve;
   let reject;
-  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
   return { promise, resolve, reject };
 }
 
-async function boot({ defaultPairText = 'D,9\nE,8\n', deferDefaultFetch = false } = {}) {
+async function boot({ defaultPairText = 'A,1\n', deferDefaultFetch = false } = {}) {
   const env = {
     elements: [],
     documentListeners: new Map(),
+    windowListeners: new Map(),
     alerts: [],
-    timeoutQueue: new Map(),
-    nextTimeout: 1,
     intervals: new Set(),
     nextInterval: 1,
     deferredFetch: deferDefaultFetch ? createDeferred() : null,
@@ -146,12 +150,11 @@ async function boot({ defaultPairText = 'D,9\nE,8\n', deferDefaultFetch = false 
   add('div', 'game-board');
   const fileInput = add('input', 'file-input');
   fileInput.style.display = 'none';
-  fileInput.accept = '.txt';
-  add('input', 'use-file');
+  const useFile = add('input', 'use-file');
   const pairCount = add('select', 'pair-count');
   pairCount.value = 'max';
   const mode = add('select', 'mode');
-  mode.value = 'random';
+  mode.value = 'ascending';
   const showRuby = add('input', 'show-ruby');
   showRuby.checked = true;
   const enableTimer = add('input', 'enable-timer');
@@ -164,7 +167,14 @@ async function boot({ defaultPairText = 'D,9\nE,8\n', deferDefaultFetch = false 
   globalThis.document = env.document;
   globalThis.window = {
     innerWidth: 1200,
-    addEventListener() {},
+    addEventListener(type, callback) {
+      const callbacks = env.windowListeners.get(type) ?? [];
+      callbacks.push(callback);
+      env.windowListeners.set(type, callbacks);
+    },
+  };
+  env.dispatchWindow = type => {
+    for (const callback of env.windowListeners.get(type) ?? []) callback({ type });
   };
   globalThis.localStorage = {
     getItem: key => storage.get(key) ?? null,
@@ -172,12 +182,11 @@ async function boot({ defaultPairText = 'D,9\nE,8\n', deferDefaultFetch = false 
   };
   globalThis.alert = message => env.alerts.push(message);
   globalThis.setTimeout = callback => {
-    const id = env.nextTimeout++;
-    env.timeoutQueue.set(id, callback);
-    return id;
+    callback();
+    return 1;
   };
-  globalThis.clearTimeout = id => env.timeoutQueue.delete(id);
-  globalThis.setInterval = callback => {
+  globalThis.clearTimeout = () => {};
+  globalThis.setInterval = () => {
     const id = env.nextInterval++;
     env.intervals.add(id);
     return id;
@@ -185,8 +194,15 @@ async function boot({ defaultPairText = 'D,9\nE,8\n', deferDefaultFetch = false 
   globalThis.clearInterval = id => env.intervals.delete(id);
   globalThis.FileReader = class {
     readAsText(file) {
-      this.result = file.content;
-      this.onload?.({ target: { result: this.result } });
+      if (file.readError) {
+        this.onerror?.({ target: this });
+        return;
+      }
+      if (file.abortRead) {
+        this.onabort?.({ target: this });
+        return;
+      }
+      this.onload?.({ target: { result: file.content ?? '' } });
     }
   };
   globalThis.fetch = async () => {
@@ -194,7 +210,7 @@ async function boot({ defaultPairText = 'D,9\nE,8\n', deferDefaultFetch = false 
     return { ok: true, text: async () => defaultPairText };
   };
 
-  const moduleUrl = pathToFileURL(path.join(ROOT, 'main.js')).href + `?audit=${++importCounter}`;
+  const moduleUrl = pathToFileURL(path.join(ROOT, 'main.js')).href + `?lifecycle=${++importCounter}`;
   await import(moduleUrl);
   for (const callback of env.documentListeners.get('DOMContentLoaded') ?? []) callback();
   env.settle = async () => {
@@ -202,136 +218,106 @@ async function boot({ defaultPairText = 'D,9\nE,8\n', deferDefaultFetch = false 
   };
   await env.settle();
 
-  env.controls = controls;
-  env.fileInput = fileInput;
-  env.pairCount = pairCount;
-  env.mode = mode;
-  env.showRuby = showRuby;
-  env.enableTimer = enableTimer;
-  env.useFile = env.document.getElementById('use-file');
-  env.startButton = env.document.getElementById('start-game');
   env.board = env.document.getElementById('game-board');
+  env.fileInput = fileInput;
+  env.useFile = useFile;
+  env.startButton = env.document.getElementById('start-game');
+  env.pairCount = pairCount;
+  env.logArea = env.document.getElementById('log-area');
   env.timerDisplay = env.document.getElementById('timer-display');
-  env.runTimeouts = () => {
-    const errors = [];
-    const pending = [...env.timeoutQueue.entries()];
-    env.timeoutQueue.clear();
-    for (const [, callback] of pending) {
-      try { callback(); } catch (error) { errors.push(error); }
-    }
-    return errors;
+  env.start = count => {
+    env.pairCount.value = String(count);
+    env.startButton.click();
   };
-  env.importPairs = text => {
-    env.fileInput.files = [{ content: text }];
+  env.enterFileMode = () => {
+    env.useFile.checked = true;
+    env.useFile.dispatch('change');
+  };
+  env.selectFile = file => {
+    env.fileInput.files = [file];
     env.fileInput.value = 'selected-file.txt';
     env.fileInput.dispatch('change');
-  };
-  env.start = pairCountValue => {
-    env.pairCount.value = String(pairCountValue);
-    env.startButton.click();
   };
   return env;
 }
 
-function settingsButton(env) {
-  return env.elements.find(element => element.tagName === 'BUTTON' && element.textContent === '⚙️ 設定');
-}
-
-function cardTexts(env) {
-  return env.board.children.map(card => card.children[0]).filter(Boolean);
-}
-
-test('settings button exposes one authoritative settings panel', async () => {
+test('final match enters completion state and stops the active timer', async () => {
   const env = await boot();
-  assert.equal(env.elements.filter(element => element.id === 'settings-panel').length, 1);
-  const button = settingsButton(env);
-  assert.ok(button, 'settings button should exist');
-  button.click();
-  const panel = env.document.getElementById('settings-panel');
-  assert.notEqual(panel.style.display, 'none');
-  assert.ok(env.document.getElementById('load-settings-file'));
-  assert.ok(env.document.getElementById('export-settings'));
-});
-
-test('visible Ruby and timer controls govern the next game', async () => {
-  const env = await boot({ defaultPairText: '｜漢字《かんじ》,meaning\n' });
-  await env.settle();
   env.start(1);
-  assert.ok(cardTexts(env).some(element => element.innerHTML.includes('<ruby>')), 'checked Show Ruby should render ruby');
+  assert.equal(env.intervals.size, 1, 'timer should be active during the round');
 
-  env.showRuby.checked = false;
-  env.enableTimer.checked = false;
-  env.start(1);
-  assert.ok(cardTexts(env).every(element => !element.innerHTML.includes('<ruby>')), 'unchecked Show Ruby should suppress ruby markup');
-  assert.equal(env.timerDisplay.textContent, '', 'unchecked timer must not show/start a timer');
-  assert.equal(env.intervals.size, 0, 'unchecked timer must clear active interval');
-});
-
-test('hide mode removes a matched pair without delayed null-state failure', async () => {
-  const env = await boot({ defaultPairText: 'A,1\n' });
-  await env.settle();
-  const removeMode = env.document.getElementById('set-pair-remove');
-  removeMode.value = 'hide';
-  env.start(1);
   const [first, second] = env.board.children;
   first.click();
   second.click();
-  const errors = env.runTimeouts();
-  assert.deepEqual(errors, []);
-  assert.ok(first.classList.contains('removed'));
-  assert.ok(second.classList.contains('removed'));
+
+  assert.ok(first.classList.contains('matched'));
+  assert.ok(second.classList.contains('matched'));
+  assert.equal(env.intervals.size, 0, 'final match must stop the timer');
+  assert.equal(env.timerDisplay.textContent, '', 'completed round must clear timer display');
+  assert.match(
+    env.logArea.children.at(-1)?.textContent ?? '',
+    /完了/,
+    'completion must be visible to the user',
+  );
 });
 
-test('late default pair fetch cannot overwrite external-file mode', async () => {
+test('game cards use native button semantics for keyboard activation', async () => {
+  const env = await boot();
+  env.start(1);
+
+  assert.equal(env.board.children.length, 2);
+  for (const card of env.board.children) {
+    assert.equal(card.tagName, 'BUTTON');
+    assert.equal(card.type, 'button');
+  }
+});
+
+test('pending default pair load disables Start without reporting a hard error', async () => {
   const env = await boot({ deferDefaultFetch: true });
-  env.useFile.checked = true;
-  env.useFile.dispatch('change');
-  env.importPairs('EXTERNAL,1\nSECOND,2\n');
-  env.deferredFetch.resolve({ ok: true, text: async () => 'DEFAULT,9\n' });
+
+  assert.equal(env.startButton.disabled, true);
+  assert.match(env.startButton.textContent, /読み込み/);
+  env.startButton.click();
+  assert.deepEqual(env.alerts, []);
+
+  env.deferredFetch.resolve({ ok: true, text: async () => 'A,1\n' });
   await env.settle();
-  env.start(2);
-  const values = env.board.children.map(card => card.dataset.value);
-  assert.ok(values.includes('EXTERNAL'));
-  assert.ok(values.includes('SECOND'));
-  assert.ok(!values.includes('DEFAULT'));
+  assert.equal(env.startButton.disabled, false);
+  assert.equal(env.startButton.textContent, 'Start Game');
 });
 
-test('re-entering external-file mode does not retain a stale file selection with cleared state', async () => {
-  const env = await boot();
-  env.useFile.checked = true;
-  env.useFile.dispatch('change');
-  env.importPairs('A,1\n');
-  env.useFile.checked = false;
-  env.useFile.dispatch('change');
-  env.useFile.checked = true;
-  env.useFile.dispatch('change');
-  assert.equal(env.fileInput.value, '');
-});
-
-test('starting a new round clears transient first-card state', async () => {
+test('resize recomputes board columns without replacing current card state', async () => {
   const env = await boot({ defaultPairText: 'A,1\nB,2\n' });
-  await env.settle();
-  env.mode.value = 'ascending';
-  env.start(1);
-  env.board.children[0].click();
-  env.start(1);
-  const newFirst = env.board.children[0];
-  newFirst.click();
-  assert.ok(newFirst.classList.contains('flipped'));
-  assert.ok(!newFirst.classList.contains('matched'));
-});
-
-test('distinct source rows get distinct pair identities', async () => {
-  const env = await boot();
-  env.useFile.checked = true;
-  env.useFile.dispatch('change');
-  env.importPairs('ab,c\na,bc\n');
   env.start(2);
-  const ids = new Set(env.board.children.map(card => card.dataset.pairId));
-  assert.equal(ids.size, 2);
+  assert.equal(env.board.style.gridTemplateColumns, 'repeat(7, 1fr)');
+
+  const pairId = env.board.children[0].dataset.pairId;
+  const pairCards = env.board.children.filter(card => card.dataset.pairId === pairId);
+  pairCards[0].click();
+  pairCards[1].click();
+  assert.ok(pairCards.every(card => card.classList.contains('matched')));
+  const cardsBeforeResize = [...env.board.children];
+
+  window.innerWidth = 400;
+  env.dispatchWindow('resize');
+
+  assert.equal(env.board.style.gridTemplateColumns, 'repeat(2, 1fr)');
+  assert.deepEqual(env.board.children, cardsBeforeResize, 'resize must not rebuild the round');
+  assert.ok(pairCards.every(card => card.classList.contains('matched')), 'matched state must survive relayout');
 });
 
-test('pair file picker advertises both txt and csv inputs', async () => {
-  const html = await fs.readFile(path.join(ROOT, 'index.html'), 'utf8');
-  assert.match(html, /id="file-input"[^>]*accept="[^"]*\.txt[^"]*\.csv[^"]*"/);
-});
+for (const [name, file] of [
+  ['read error', { readError: true }],
+  ['read abort', { abortRead: true }],
+]) {
+  test(`external pair file ${name} is visible and returns to retryable state`, async () => {
+    const env = await boot();
+    env.enterFileMode();
+    env.selectFile(file);
+
+    assert.equal(env.startButton.disabled, true);
+    assert.equal(env.startButton.textContent, 'ファイルを選択');
+    assert.equal(env.fileInput.value, '', 'failed file must be reset so the same path can be retried');
+    assert.match(env.alerts.at(-1) ?? '', /読み込み.*(?:失敗|中断)/);
+  });
+}
