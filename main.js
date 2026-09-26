@@ -157,7 +157,8 @@ function setupBoard(gamePairs) {
   board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 
   gamePairs.forEach(cardData => {
-    const card = document.createElement('div');
+    const card = document.createElement('button');
+    card.type = 'button';
     card.classList.add('card');
     card.dataset.pairId = cardData.pairId;
     card.dataset.value = cardData.value;
