@@ -269,6 +269,14 @@ useFileCheckbox.addEventListener('change', (e) => {
   }
 });
 
+function recoverFromFileReadFailure(generation, message) {
+  if (generation !== pairLoadGeneration || !useFileCheckbox.checked) return;
+  fileLoaded = false;
+  fileInput.value = '';
+  setPairLoadState('waiting-file');
+  alert(message);
+}
+
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -290,8 +298,15 @@ fileInput.addEventListener('change', (e) => {
     } else {
       alert('ファイルに有効なペアが含まれていません');
       fileLoaded = false;
+      fileInput.value = '';
       setPairLoadState('waiting-file');
     }
+  };
+  reader.onerror = () => {
+    recoverFromFileReadFailure(generation, 'ファイルの読み込みに失敗しました。もう一度選択してください。');
+  };
+  reader.onabort = () => {
+    recoverFromFileReadFailure(generation, 'ファイルの読み込みが中断されました。もう一度選択してください。');
   };
   reader.readAsText(file);
 });
