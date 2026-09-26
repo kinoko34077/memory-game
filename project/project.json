@@ -30,7 +30,8 @@
         "--experimental-default-type=module",
         "--test",
         "project/tests/memory-game-behavior.test.mjs",
-        "project/tests/ruby-rendering.test.mjs"
+        "project/tests/ruby-rendering.test.mjs",
+        "project/tests/interaction-lifecycle.test.mjs"
       ],
       "cwd": "."
     },
@@ -41,7 +42,8 @@
         "--experimental-default-type=module",
         "--test",
         "project/tests/memory-game-behavior.test.mjs",
-        "project/tests/ruby-rendering.test.mjs"
+        "project/tests/ruby-rendering.test.mjs",
+        "project/tests/interaction-lifecycle.test.mjs"
       ],
       "cwd": "."
     },
