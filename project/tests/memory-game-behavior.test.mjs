@@ -162,7 +162,10 @@ async function boot({ defaultPairText = 'D,9\nE,8\n', deferDefaultFetch = false 
 
   const storage = new Map();
   globalThis.document = env.document;
-  globalThis.window = { innerWidth: 1200 };
+  globalThis.window = {
+    innerWidth: 1200,
+    addEventListener() {},
+  };
   globalThis.localStorage = {
     getItem: key => storage.get(key) ?? null,
     setItem: (key, value) => storage.set(key, value),
