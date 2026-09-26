@@ -32,6 +32,7 @@ let timeCounter = 0;
 let currentTimerMode = enumTimerMode.OFF;
 let settings = {};
 let revertTimeout = null;
+let roundCompleted = false;
 
 function logDebug(message, ...optional) {
   if (DEBUG) console.log(`[DEBUG] ${message}`, ...optional);
@@ -129,12 +130,24 @@ function resetBoard() {
   lockBoard = false;
 }
 
+function isRoundComplete() {
+  return board.children.length > 0 && [...board.children].every(card => card.classList.contains('matched'));
+}
+
+function completeRound() {
+  if (roundCompleted) return;
+  roundCompleted = true;
+  stopTimer();
+  logUserAction('✅ ゲーム完了！');
+}
+
 function setupBoard(gamePairs) {
   if (revertTimeout !== null) {
     clearTimeout(revertTimeout);
     revertTimeout = null;
   }
   resetBoard();
+  roundCompleted = false;
   stopTimer();
   board.innerHTML = '';
 
@@ -170,7 +183,7 @@ let firstCard = null;
 let lockBoard = false;
 
 function handleCardClick(e) {
-  if (lockBoard) return;
+  if (lockBoard || roundCompleted) return;
   const card = e.currentTarget;
 
   if (!card.classList.contains('flipped')) {
@@ -196,6 +209,7 @@ function handleCardClick(e) {
     }
 
     resetBoard();
+    if (isRoundComplete()) completeRound();
   } else {
     const previousCard = firstCard;
     lockBoard = true;
