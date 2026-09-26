@@ -30,6 +30,7 @@ class FakeElement {
     this._innerHTML = '';
     this._id = '';
     this.accept = '';
+    this.type = '';
     env.elements.push(this);
     if (id) this.id = id;
   }
@@ -204,4 +205,15 @@ test('final match enters completion state and stops the active timer', async () 
     /完了/,
     'completion must be visible to the user',
   );
+});
+
+test('game cards use native button semantics for keyboard activation', async () => {
+  const env = await boot();
+  env.start(1);
+
+  assert.equal(env.board.children.length, 2);
+  for (const card of env.board.children) {
+    assert.equal(card.tagName, 'BUTTON');
+    assert.equal(card.type, 'button');
+  }
 });
