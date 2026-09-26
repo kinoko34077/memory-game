@@ -121,6 +121,7 @@ async function boot({ defaultPairText = 'A,1\n', deferDefaultFetch = false } = {
   const env = {
     elements: [],
     documentListeners: new Map(),
+    windowListeners: new Map(),
     alerts: [],
     intervals: new Set(),
     nextInterval: 1,
@@ -164,7 +165,17 @@ async function boot({ defaultPairText = 'A,1\n', deferDefaultFetch = false } = {
 
   const storage = new Map();
   globalThis.document = env.document;
-  globalThis.window = { innerWidth: 1200 };
+  globalThis.window = {
+    innerWidth: 1200,
+    addEventListener(type, callback) {
+      const callbacks = env.windowListeners.get(type) ?? [];
+      callbacks.push(callback);
+      env.windowListeners.set(type, callbacks);
+    },
+  };
+  env.dispatchWindow = type => {
+    for (const callback of env.windowListeners.get(type) ?? []) callback({ type });
+  };
   globalThis.localStorage = {
     getItem: key => storage.get(key) ?? null,
     setItem: (key, value) => storage.set(key, value),
@@ -250,4 +261,24 @@ test('pending default pair load disables Start without reporting a hard error', 
   await env.settle();
   assert.equal(env.startButton.disabled, false);
   assert.equal(env.startButton.textContent, 'Start Game');
+});
+
+test('resize recomputes board columns without replacing current card state', async () => {
+  const env = await boot({ defaultPairText: 'A,1\nB,2\n' });
+  env.start(2);
+  assert.equal(env.board.style.gridTemplateColumns, 'repeat(7, 1fr)');
+
+  const pairId = env.board.children[0].dataset.pairId;
+  const pairCards = env.board.children.filter(card => card.dataset.pairId === pairId);
+  pairCards[0].click();
+  pairCards[1].click();
+  assert.ok(pairCards.every(card => card.classList.contains('matched')));
+  const cardsBeforeResize = [...env.board.children];
+
+  window.innerWidth = 400;
+  env.dispatchWindow('resize');
+
+  assert.equal(env.board.style.gridTemplateColumns, 'repeat(2, 1fr)');
+  assert.deepEqual(env.board.children, cardsBeforeResize, 'resize must not rebuild the round');
+  assert.ok(pairCards.every(card => card.classList.contains('matched')), 'matched state must survive relayout');
 });
