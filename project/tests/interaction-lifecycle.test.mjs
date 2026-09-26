@@ -150,7 +150,7 @@ async function boot({ defaultPairText = 'A,1\n', deferDefaultFetch = false } = {
   add('div', 'game-board');
   const fileInput = add('input', 'file-input');
   fileInput.style.display = 'none';
-  add('input', 'use-file');
+  const useFile = add('input', 'use-file');
   const pairCount = add('select', 'pair-count');
   pairCount.value = 'max';
   const mode = add('select', 'mode');
@@ -192,7 +192,19 @@ async function boot({ defaultPairText = 'A,1\n', deferDefaultFetch = false } = {
     return id;
   };
   globalThis.clearInterval = id => env.intervals.delete(id);
-  globalThis.FileReader = class {};
+  globalThis.FileReader = class {
+    readAsText(file) {
+      if (file.readError) {
+        this.onerror?.({ target: this });
+        return;
+      }
+      if (file.abortRead) {
+        this.onabort?.({ target: this });
+        return;
+      }
+      this.onload?.({ target: { result: file.content ?? '' } });
+    }
+  };
   globalThis.fetch = async () => {
     if (env.deferredFetch) return env.deferredFetch.promise;
     return { ok: true, text: async () => defaultPairText };
@@ -207,6 +219,8 @@ async function boot({ defaultPairText = 'A,1\n', deferDefaultFetch = false } = {
   await env.settle();
 
   env.board = env.document.getElementById('game-board');
+  env.fileInput = fileInput;
+  env.useFile = useFile;
   env.startButton = env.document.getElementById('start-game');
   env.pairCount = pairCount;
   env.logArea = env.document.getElementById('log-area');
@@ -214,6 +228,15 @@ async function boot({ defaultPairText = 'A,1\n', deferDefaultFetch = false } = {
   env.start = count => {
     env.pairCount.value = String(count);
     env.startButton.click();
+  };
+  env.enterFileMode = () => {
+    env.useFile.checked = true;
+    env.useFile.dispatch('change');
+  };
+  env.selectFile = file => {
+    env.fileInput.files = [file];
+    env.fileInput.value = 'selected-file.txt';
+    env.fileInput.dispatch('change');
   };
   return env;
 }
@@ -282,3 +305,19 @@ test('resize recomputes board columns without replacing current card state', asy
   assert.deepEqual(env.board.children, cardsBeforeResize, 'resize must not rebuild the round');
   assert.ok(pairCards.every(card => card.classList.contains('matched')), 'matched state must survive relayout');
 });
+
+for (const [name, file] of [
+  ['read error', { readError: true }],
+  ['read abort', { abortRead: true }],
+]) {
+  test(`external pair file ${name} is visible and returns to retryable state`, async () => {
+    const env = await boot();
+    env.enterFileMode();
+    env.selectFile(file);
+
+    assert.equal(env.startButton.disabled, true);
+    assert.equal(env.startButton.textContent, 'ファイルを選択');
+    assert.equal(env.fileInput.value, '', 'failed file must be reset so the same path can be retried');
+    assert.match(env.alerts.at(-1) ?? '', /読み込み.*(?:失敗|中断)/);
+  });
+}
