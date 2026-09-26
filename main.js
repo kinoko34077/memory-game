@@ -60,6 +60,11 @@ function setPairLoadState(state) {
   startButton.textContent = 'Start Game';
 }
 
+function updateBoardColumns() {
+  const columns = Math.max(2, Math.min(10, Math.floor(window.innerWidth / 170)));
+  board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+}
+
 function stopTimer() {
   clearInterval(timerInterval);
   timerInterval = undefined;
@@ -170,10 +175,8 @@ function setupBoard(gamePairs) {
   stopTimer();
   board.innerHTML = '';
 
-  const windowWidth = window.innerWidth;
-  const columns = Math.max(2, Math.min(10, Math.floor(windowWidth / 170)));
   board.style.display = 'grid';
-  board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+  updateBoardColumns();
 
   gamePairs.forEach(cardData => {
     const card = document.createElement('button');
@@ -304,6 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSettingsPanel();
   settings = getCurrentSettings();
 });
+
+window.addEventListener('resize', updateBoardColumns);
 
 startButton.addEventListener('click', () => {
   settings = getCurrentSettings();
