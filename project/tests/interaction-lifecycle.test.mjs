@@ -25,6 +25,7 @@ class FakeElement {
     this.classList = new ClassList();
     this.value = '';
     this.checked = false;
+    this.disabled = false;
     this.files = [];
     this.textContent = '';
     this._innerHTML = '';
@@ -61,7 +62,9 @@ class FakeElement {
     }
   }
 
-  click() { this.dispatch('click'); }
+  click() {
+    if (!this.disabled) this.dispatch('click');
+  }
 
   querySelectorAll(selector) {
     const tags = selector.split(',').map(value => value.trim().toUpperCase());
@@ -104,13 +107,24 @@ class FakeElement {
   get innerHTML() { return this._innerHTML; }
 }
 
-async function boot({ defaultPairText = 'A,1\n' } = {}) {
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+async function boot({ defaultPairText = 'A,1\n', deferDefaultFetch = false } = {}) {
   const env = {
     elements: [],
     documentListeners: new Map(),
     alerts: [],
     intervals: new Set(),
     nextInterval: 1,
+    deferredFetch: deferDefaultFetch ? createDeferred() : null,
   };
 
   const body = new FakeElement(env, 'body');
@@ -168,12 +182,18 @@ async function boot({ defaultPairText = 'A,1\n' } = {}) {
   };
   globalThis.clearInterval = id => env.intervals.delete(id);
   globalThis.FileReader = class {};
-  globalThis.fetch = async () => ({ ok: true, text: async () => defaultPairText });
+  globalThis.fetch = async () => {
+    if (env.deferredFetch) return env.deferredFetch.promise;
+    return { ok: true, text: async () => defaultPairText };
+  };
 
   const moduleUrl = pathToFileURL(path.join(ROOT, 'main.js')).href + `?lifecycle=${++importCounter}`;
   await import(moduleUrl);
   for (const callback of env.documentListeners.get('DOMContentLoaded') ?? []) callback();
-  for (let i = 0; i < 8; i++) await Promise.resolve();
+  env.settle = async () => {
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+  };
+  await env.settle();
 
   env.board = env.document.getElementById('game-board');
   env.startButton = env.document.getElementById('start-game');
@@ -216,4 +236,18 @@ test('game cards use native button semantics for keyboard activation', async () 
     assert.equal(card.tagName, 'BUTTON');
     assert.equal(card.type, 'button');
   }
+});
+
+test('pending default pair load disables Start without reporting a hard error', async () => {
+  const env = await boot({ deferDefaultFetch: true });
+
+  assert.equal(env.startButton.disabled, true);
+  assert.match(env.startButton.textContent, /読み込み/);
+  env.startButton.click();
+  assert.deepEqual(env.alerts, []);
+
+  env.deferredFetch.resolve({ ok: true, text: async () => 'A,1\n' });
+  await env.settle();
+  assert.equal(env.startButton.disabled, false);
+  assert.equal(env.startButton.textContent, 'Start Game');
 });
