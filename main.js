@@ -45,6 +45,21 @@ function logUserAction(text) {
   logArea.scrollTop = logArea.scrollHeight;
 }
 
+function setPairLoadState(state) {
+  if (state === 'loading') {
+    startButton.disabled = true;
+    startButton.textContent = '読み込み中...';
+    return;
+  }
+  if (state === 'waiting-file') {
+    startButton.disabled = true;
+    startButton.textContent = 'ファイルを選択';
+    return;
+  }
+  startButton.disabled = false;
+  startButton.textContent = 'Start Game';
+}
+
 function stopTimer() {
   clearInterval(timerInterval);
   timerInterval = undefined;
@@ -104,6 +119,8 @@ function parsePairsWithRuby(text) {
 
 function loadDefaultPairs() {
   const generation = ++pairLoadGeneration;
+  fileLoaded = false;
+  setPairLoadState('loading');
   fetch('pair.txt')
     .then(response => {
       if (!response.ok) throw new Error('ファイルの取得に失敗しました');
@@ -113,6 +130,7 @@ function loadDefaultPairs() {
       if (generation !== pairLoadGeneration || useFileCheckbox.checked) return;
       pairs = parsePairsWithRuby(text);
       fileLoaded = true;
+      setPairLoadState('ready');
       logDebug('pair.txt を読み込みました', pairs);
     })
     .catch(err => {
@@ -121,6 +139,7 @@ function loadDefaultPairs() {
       const fallbackText = `｜洋弓《ようきゅう》,アーチェリー\n｜氷球《ひょうきゅう》,アイスホッケー`;
       pairs = parsePairsWithRuby(fallbackText);
       fileLoaded = true;
+      setPairLoadState('ready');
       logDebug('フォールバックペアを使用', pairs);
     });
 }
@@ -240,6 +259,7 @@ useFileCheckbox.addEventListener('change', (e) => {
     pairLoadGeneration++;
     pairs = [];
     fileLoaded = false;
+    setPairLoadState('waiting-file');
     logDebug('ファイルモードへ切替：ペア初期化');
   } else {
     loadDefaultPairs();
@@ -251,6 +271,8 @@ fileInput.addEventListener('change', (e) => {
   if (!file) return;
 
   const generation = ++pairLoadGeneration;
+  fileLoaded = false;
+  setPairLoadState('loading');
   const reader = new FileReader();
   reader.onload = (event) => {
     if (generation !== pairLoadGeneration || !useFileCheckbox.checked) return;
@@ -260,10 +282,12 @@ fileInput.addEventListener('change', (e) => {
     if (parsed.length > 0) {
       pairs = parsed;
       fileLoaded = true;
+      setPairLoadState('ready');
       logDebug('ファイルからペア読み込み成功', pairs);
     } else {
       alert('ファイルに有効なペアが含まれていません');
       fileLoaded = false;
+      setPairLoadState('waiting-file');
     }
   };
   reader.readAsText(file);
@@ -275,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.style.display = 'none';
   } else {
     fileInput.style.display = 'inline';
+    setPairLoadState('waiting-file');
   }
   setupSettingsPanel();
   settings = getCurrentSettings();
