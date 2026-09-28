@@ -11,7 +11,7 @@ implementation.
 ## Acceptance
 
 1. Existing game rules and pair-matching model remain Project-owned.
-2. Bundled pair data and external `.txt` / `.csv` pair imports remain operable.
+2. Bundled pair data and external `.txt` / `.csv` pair imports remain operable. External pair files use a two-column CSV-compatible text contract: every nonblank record has exactly two logical fields; double-quoted fields may contain commas and escape a literal quote as `""`; LF and CRLF records are accepted. Malformed records fail the whole candidate import before replacing the last accepted pair set.
 3. Existing primary controls and settings import/export are reachable and affect the game state they label.
 4. Starting a new round does not inherit transient card/timer state from the previous round.
 5. External pair values are treated as text; Ruby-enabled rendering may emit only the controlled `<ruby>` / `<rt>` markup required by the existing Ruby notation.
