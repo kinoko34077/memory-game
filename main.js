@@ -108,14 +108,82 @@ function updateTimerDisplay() {
 }
 
 function parsePairs(text) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  return lines
-    .map(line => line.trim())
-    .filter(line => line && line.includes(','))
-    .map(line => {
-      const [rawA, rawB] = line.split(',');
-      return [rawA.trim(), rawB.trim()];
-    });
+  const source = String(text ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const records = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  let fieldWasQuoted = false;
+  let afterQuote = false;
+  let physicalLine = 1;
+  let recordLine = 1;
+
+  const fail = message => {
+    throw new Error(`CSV ${recordLine}行目: ${message}`);
+  };
+  const pushField = () => {
+    row.push(fieldWasQuoted ? field : field.trim());
+    field = '';
+    fieldWasQuoted = false;
+    afterQuote = false;
+  };
+  const pushRecord = () => {
+    pushField();
+    const isBlank = row.length === 1 && row[0] === '';
+    if (!isBlank) {
+      if (row.length !== 2) fail('2列である必要があります');
+      records.push(row);
+    }
+    row = [];
+    recordLine = physicalLine + 1;
+  };
+
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (source[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+          afterQuote = true;
+        }
+      } else {
+        field += char;
+        if (char === '\n') physicalLine++;
+      }
+      continue;
+    }
+    if (afterQuote) {
+      if (char === ',') {
+        pushField();
+      } else if (char === '\n') {
+        pushRecord();
+        physicalLine++;
+      } else if (char !== ' ' && char !== '\t') {
+        fail('引用符の後に不正な文字があります');
+      }
+      continue;
+    }
+    if (char === ',') {
+      pushField();
+    } else if (char === '\n') {
+      pushRecord();
+      physicalLine++;
+    } else if (char === '"') {
+      if (field.trim() !== '') fail('引用符はフィールド先頭でのみ使用できます');
+      field = '';
+      fieldWasQuoted = true;
+      inQuotes = true;
+    } else {
+      field += char;
+    }
+  }
+
+  if (inQuotes) fail('引用符が閉じられていません');
+  if (afterQuote || field !== '' || row.length > 0) pushRecord();
+  return records;
 }
 
 function parsePairsWithRuby(text) {
@@ -281,6 +349,8 @@ fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
+  const previousPairs = pairs;
+  const previousFileLoaded = fileLoaded;
   const generation = ++pairLoadGeneration;
   fileLoaded = false;
   setPairLoadState('loading');
@@ -289,17 +359,20 @@ fileInput.addEventListener('change', (e) => {
     if (generation !== pairLoadGeneration || !useFileCheckbox.checked) return;
     const result = event.target.result;
     logDebug('ファイル読込成功', result);
-    const parsed = parsePairsWithRuby(result);
-    if (parsed.length > 0) {
+    try {
+      const parsed = parsePairsWithRuby(result);
+      if (parsed.length === 0) throw new Error('有効なペアが含まれていません');
       pairs = parsed;
       fileLoaded = true;
       setPairLoadState('ready');
       logDebug('ファイルからペア読み込み成功', pairs);
-    } else {
-      alert('ファイルに有効なペアが含まれていません');
-      fileLoaded = false;
+    } catch (error) {
+      pairs = previousPairs;
+      fileLoaded = previousFileLoaded && previousPairs.length > 0;
       fileInput.value = '';
-      setPairLoadState('waiting-file');
+      setPairLoadState(fileLoaded ? 'ready' : 'waiting-file');
+      const detail = error instanceof Error ? error.message : String(error);
+      alert(`ペアファイルの形式が不正です: ${detail}`);
     }
   };
   reader.onerror = () => {

@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 let importCounter = 0;
 
 class ClassList {
@@ -334,4 +334,45 @@ test('distinct source rows get distinct pair identities', async () => {
 test('pair file picker advertises both txt and csv inputs', async () => {
   const html = await fs.readFile(path.join(ROOT, 'index.html'), 'utf8');
   assert.match(html, /id="file-input"[^>]*accept="[^"]*\.txt[^"]*\.csv[^"]*"/);
+});
+
+test('csv import preserves quoted commas, escaped quotes, and CRLF records', async () => {
+  const env = await boot();
+  env.useFile.checked = true;
+  env.useFile.dispatch('change');
+  env.importPairs('"New York, NY",都市\r\n"He said ""hi""",挨拶\r\n');
+  env.start(2);
+  const values = env.board.children.map(card => card.dataset.value);
+  assert.ok(values.includes('New York, NY'));
+  assert.ok(values.includes('He said "hi"'));
+  assert.ok(values.includes('都市'));
+  assert.ok(values.includes('挨拶'));
+});
+
+test('malformed csv import reports row number and preserves the last valid pair set', async () => {
+  const env = await boot();
+  env.useFile.checked = true;
+  env.useFile.dispatch('change');
+  env.importPairs('KEEP,1\n');
+  env.importPairs('A,B,C\n');
+  assert.match(env.alerts.at(-1) ?? '', /1/);
+  assert.equal(env.startButton.disabled, false);
+  env.start(1);
+  const values = env.board.children.map(card => card.dataset.value);
+  assert.ok(values.includes('KEEP'));
+  assert.ok(values.includes('1'));
+  assert.ok(!values.includes('A'));
+});
+
+test('missing csv column fails closed instead of replacing valid imported pairs', async () => {
+  const env = await boot();
+  env.useFile.checked = true;
+  env.useFile.dispatch('change');
+  env.importPairs('KEEP,1\n');
+  env.importPairs('ONLY_ONE_COLUMN\n');
+  assert.match(env.alerts.at(-1) ?? '', /1/);
+  env.start(1);
+  const values = env.board.children.map(card => card.dataset.value);
+  assert.ok(values.includes('KEEP'));
+  assert.ok(!values.includes('ONLY_ONE_COLUMN'));
 });

@@ -10,6 +10,7 @@ Last verified: 2026-09-26 — interaction lifecycle, state, and imported-Ruby sa
 - `web-app` Surface declaration
 - Existing static HTML, CSS, and JavaScript game implementation retained
 - Pair data can use the bundled `pair.txt` or an external `.txt` / `.csv` file
+- External pair files use a strict two-column CSV-compatible parser: quoted commas and doubled quotes are preserved, LF/CRLF are accepted, and malformed/ambiguous rows fail with row-level feedback without replacing the last accepted pair set
 - Default/external pair loading uses generation guards so stale asynchronous loads do not overwrite the active source
 - Pair-source lifecycle is visible through the Start control: pending loads are disabled as `読み込み中...`, external-file mode waits as `ファイルを選択`, and Start becomes available only after valid pair data is ready
 - External pair-file read error/abort returns to a retryable file-selection state with visible feedback and clears the failed picker value for same-path retry
