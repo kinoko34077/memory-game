@@ -2,7 +2,7 @@
 
 Base version: `0.3.8`
 
-Last verified: 2026-09-26 — interaction lifecycle, state, and imported-Ruby safety maintenance
+Last verified: 2026-09-28 — strict two-column CSV-compatible pair import accepted through Issue #9 / PR #12; post-main Verify `36419067005` succeeded on `fc45bc086246660a59f970c19f114514fe5381eb`
 
 ## Implemented
 
@@ -51,3 +51,9 @@ Last verified: 2026-09-26 — interaction lifecycle, state, and imported-Ruby sa
 - `knt verify`
 - Project command executes `project/tests/memory-game-behavior.test.mjs`, `project/tests/ruby-rendering.test.mjs`, and `project/tests/interaction-lifecycle.test.mjs` from repository root
 - Issue #7 TDD evidence includes RED runs `36231140347`, `36231260486`, `36231393909`, `36231574656`, `36231820412` and final GREEN run `36231884072`
+- Issue #9 / PR #12 exact reviewed head: `21f709e8278c2d1639fa7acaa677dead01ce34c3`
+- Issue #9 direct repository suite: 21/21 PASS
+- PR #12 Verify #65: PASS
+- PR #12 exact-head Formal Review: blocking findings none
+- PR #12 merged to main `fc45bc086246660a59f970c19f114514fe5381eb` at 2026-09-28T12:00:23Z
+- Post-main Verify #66 / run `36419067005`: SUCCESS on `fc45bc086246660a59f970c19f114514fe5381eb`
