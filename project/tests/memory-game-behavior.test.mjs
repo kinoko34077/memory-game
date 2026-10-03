@@ -308,6 +308,41 @@ test('re-entering external-file mode does not retain a stale file selection with
   assert.equal(env.fileInput.value, '');
 });
 
+test('re-activating the selected first card is a no-op and preserves normal match/mismatch behavior', async () => {
+  const env = await boot({ defaultPairText: 'A,1\nB,2\n' });
+  await env.settle();
+  env.mode.value = 'ascending';
+
+  env.start(1);
+  const [first, second] = env.board.children;
+  assert.equal(first.tagName, 'BUTTON');
+  first.click();
+  first.click();
+
+  assert.ok(first.classList.contains('flipped'));
+  assert.equal(env.timeoutQueue.size, 0, 'same-card reactivation must not schedule mismatch rollback');
+
+  second.click();
+  assert.ok(first.classList.contains('matched'));
+  assert.ok(second.classList.contains('matched'));
+  assert.equal(env.timeoutQueue.size, 0, 'normal matching pair must remain immediate');
+
+  env.start(2);
+  const mismatchFirst = env.board.children[0];
+  const mismatchSecond = env.board.children.find(
+    card => card !== mismatchFirst && card.dataset.pairId !== mismatchFirst.dataset.pairId
+  );
+  assert.ok(mismatchSecond, 'fixture must expose a distinct nonmatching card');
+  mismatchFirst.click();
+  mismatchSecond.click();
+  assert.equal(env.timeoutQueue.size, 1, 'distinct nonmatching cards must retain rollback timing');
+
+  const errors = env.runTimeouts();
+  assert.deepEqual(errors, []);
+  assert.ok(!mismatchFirst.classList.contains('flipped'));
+  assert.ok(!mismatchSecond.classList.contains('flipped'));
+});
+
 test('starting a new round clears transient first-card state', async () => {
   const env = await boot({ defaultPairText: 'A,1\nB,2\n' });
   await env.settle();

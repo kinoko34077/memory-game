@@ -282,6 +282,8 @@ function handleCardClick(e) {
     logUserAction(`🃏 選択: ${card.dataset.value}`);
   }
 
+  if (firstCard === card) return;
+
   if (!firstCard) {
     firstCard = card;
   } else if (firstCard.dataset.pairId === card.dataset.pairId && firstCard !== card) {
