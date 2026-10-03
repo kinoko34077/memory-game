@@ -2,7 +2,7 @@
 
 Base version: `0.3.8`
 
-Last verified: 2026-09-28 — strict two-column CSV-compatible pair import accepted through Issue #9 / PR #12; post-main Verify `36419067005` succeeded on `fc45bc086246660a59f970c19f114514fe5381eb`
+Last verified: 2026-10-03 — Issue #15 / PR #16 duplicate-first-card input repair verified at exact head `3a5f194c3da93e79d158617f7aa8a736a250b8a0`; Verify `37109568875` succeeded
 
 ## Implemented
 
@@ -19,6 +19,7 @@ Last verified: 2026-09-28 — strict two-column CSV-compatible pair import accep
 - New-round setup clears transient card-revert state and active timers
 - Matching the final pair enters an explicit completed round state, stops the active timer, and records visible completion in the game log
 - Game cards use native `button` semantics while retaining the existing card click/match behavior, so standard keyboard activation/focus is available
+- Re-activating the already-selected first card is a no-op: it remains flipped/selected, no mismatch rollback is scheduled, and distinct pair/mismatch behavior is unchanged
 - Board column count is recomputed on browser resize without rebuilding the current cards or resetting match/round state
 - Pair identity is assigned per selected source row rather than by concatenating card text
 - Ruby-enabled pair rendering escapes imported text/body/reading content and only emits controlled `<ruby>` / `<rt>` markup
@@ -57,3 +58,4 @@ Last verified: 2026-09-28 — strict two-column CSV-compatible pair import accep
 - PR #12 exact-head Formal Review: blocking findings none
 - PR #12 merged to main `fc45bc086246660a59f970c19f114514fe5381eb` at 2026-09-28T12:00:23Z
 - Post-main Verify #66 / run `36419067005`: SUCCESS on `fc45bc086246660a59f970c19f114514fe5381eb`
+- Issue #15 / PR #16 exact implementation head `3a5f194c3da93e79d158617f7aa8a736a250b8a0`: full Project Verify `37109568875` SUCCESS; regression covers duplicate same-card activation, normal distinct matching, and normal distinct mismatch rollback
