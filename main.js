@@ -204,7 +204,7 @@ function loadDefaultPairs() {
       pairs = parsePairsWithRuby(text);
       fileLoaded = true;
       setPairLoadState('ready');
-      logDebug('pair.txt を読み込みました', pairs);
+      logDebug('pair.txt を読み込みました', { pairCount: pairs.length });
     })
     .catch(err => {
       if (generation !== pairLoadGeneration || useFileCheckbox.checked) return;
@@ -213,7 +213,7 @@ function loadDefaultPairs() {
       pairs = parsePairsWithRuby(fallbackText);
       fileLoaded = true;
       setPairLoadState('ready');
-      logDebug('フォールバックペアを使用', pairs);
+      logDebug('フォールバックペアを使用', { pairCount: pairs.length });
     });
 }
 
@@ -360,14 +360,14 @@ fileInput.addEventListener('change', (e) => {
   reader.onload = (event) => {
     if (generation !== pairLoadGeneration || !useFileCheckbox.checked) return;
     const result = event.target.result;
-    logDebug('ファイル読込成功', result);
+    logDebug('ファイル読込成功');
     try {
       const parsed = parsePairsWithRuby(result);
       if (parsed.length === 0) throw new Error('有効なペアが含まれていません');
       pairs = parsed;
       fileLoaded = true;
       setPairLoadState('ready');
-      logDebug('ファイルからペア読み込み成功', pairs);
+      logDebug('ファイルからペア読み込み成功', { pairCount: pairs.length });
     } catch (error) {
       pairs = previousPairs;
       fileLoaded = previousFileLoaded && previousPairs.length > 0;
