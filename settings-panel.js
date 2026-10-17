@@ -47,7 +47,7 @@ export function setupSettingsPanel() {
   settingsPanel.appendChild(saveBtn);
   saveBtn.addEventListener('click', () => {
     saveSettings();
-    console.log('[DEBUG] 設定を保存しました', getCurrentSettings());
+    console.log('[DEBUG] 設定を保存しました');
     alert('設定を保存しました');
   });
 
@@ -86,7 +86,7 @@ export function setupSettingsPanel() {
   autosaveControls.forEach(el => {
     el.addEventListener('change', () => {
       saveSettings();
-      console.log('[DEBUG] 設定変更を検知して保存', getCurrentSettings());
+      console.log('[DEBUG] 設定変更を検知して保存');
     });
   });
 
@@ -108,7 +108,7 @@ export function loadSettings() {
     document.getElementById('set-font-size').value = settings.fontSize ?? 18;
     document.getElementById('set-always-show-time').checked = settings.alwaysShowTime ?? true;
     document.getElementById('set-countdown-seconds').value = settings.countdownSeconds ?? 60;
-    console.log('[DEBUG] 設定をロードしました', settings);
+    console.log('[DEBUG] 設定をロードしました');
   } catch (e) {
     console.warn('[WARN] 設定の読み込みに失敗しました', e);
   }
@@ -152,7 +152,7 @@ export function loadSettingsFromIni(iniText) {
   if ('alwaysShowTime' in data) document.getElementById('set-always-show-time').checked = data.alwaysShowTime;
   if ('countdownSeconds' in data) document.getElementById('set-countdown-seconds').value = data.countdownSeconds;
 
-  console.log('[DEBUG] INIファイルから設定を読み込みました', data);
+  console.log('[DEBUG] INIファイルから設定を読み込みました', { keyCount: Object.keys(data).length });
 }
 
 export function exportSettingsAsIni() {
