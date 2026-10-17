@@ -409,7 +409,6 @@ startButton.addEventListener('click', () => {
   logDebug('ゲーム開始ボタン押下', {
     mode,
     pairCountValue,
-    settings,
     pairCount: pairs.length,
     fileLoaded
   });
