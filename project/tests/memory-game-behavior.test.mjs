@@ -420,15 +420,15 @@ test('private imported pair values and INI values never enter developer debug lo
   console.log=(...values)=>emitted.push(values);
   console.warn=(...values)=>emitted.push(values);
   try{
-    const env=await boot({defaultPairText:pairSecret+',default\\n'});
+    const env=await boot({defaultPairText:pairSecret+',default\n'});
     await env.settle();
     env.useFile.checked=true;
     env.useFile.dispatch('change');
-    env.importPairs(pairSecret+',external\\n');
+    env.importPairs(pairSecret+',external\n');
     await env.settle();
     env.start(1);
     const {loadSettingsFromIni}=await import('../../settings-panel.js');
-    loadSettingsFromIni('pairRemoveMode = '+iniSecret+'\\n');
+    loadSettingsFromIni('pairRemoveMode = '+iniSecret+'\n');
     assert.ok(emitted.length>0,'exercise the actual DEBUG console paths');
     const serialized=JSON.stringify(emitted);
     assert.ok(!serialized.includes(pairSecret),'imported/default pair content leaked to console');
