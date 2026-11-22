@@ -27,7 +27,6 @@
     "test": {
       "exec": "node",
       "args": [
-        "--experimental-default-type=module",
         "--test",
         "project/tests/memory-game-behavior.test.mjs",
         "project/tests/ruby-rendering.test.mjs",
@@ -39,7 +38,6 @@
     "verify": {
       "exec": "node",
       "args": [
-        "--experimental-default-type=module",
         "--test",
         "project/tests/memory-game-behavior.test.mjs",
         "project/tests/ruby-rendering.test.mjs",
