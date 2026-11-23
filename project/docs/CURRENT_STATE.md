@@ -1,11 +1,18 @@
 # Current State
 
+## P3追加修正（例外診断と回帰の範囲）
+
+- 保存設定のJSON解析失敗および既定ペア取得失敗の開発者向け警告から例外オブジェクトの出力を除き、固定の失敗文言を維持。保存済み設定そのものや、正常・失敗時のUI/フォールバック動作は変更しない。
+- 合成値によるProjectテストが、INIインポート後の保存・自動保存・開始・設定JSON解析失敗と、既定ペア取得失敗の警告を確認し、各値がconsoleへ出ないことを判定する。
+- ProjectテストはNodeの`.mjs`からルート`.js` ES moduleを読み込むため、Nodeのmodule-syntax detectionに依存する。実行互換の下限はNode 22.7.0以降（Node 20系なら20.19.0以降）。現行のHosted Verify runnerの具体版とは区別する。
+- **別件**: ペア／カードのランダムsort比較関数による分布偏りは独立[Issue #22](https://github.com/kinoko34077/memory-game/issues/22)で管理。ここではゲームの乱数／並べ方を変更しない。
+
 ## 2026-11-23 P2プライバシー修正：受入済み
 
 - [Owner #17](https://github.com/kinoko34077/memory-game/issues/17)／[PR #18](https://github.com/kinoko34077/memory-game/pull/18) をmainへsquash統合（`7d0527329b4e765c9968fb239ae219e3c6380068`）。ローカルのDEBUG consoleへ入力したペア全文／配列、INI設定の値、設定オブジェクトを出力せず、静的な状態名と件数のみを保持。ゲームロジック、読み込み検証、保存形式、UI挙動は変更しない。
 - 合成されたペア／INIの固有値を実読み込み経路で投入してconsole漏洩を拒否するProject回帰テストを追加。Projectのtest/verifyから現在Nodeで使えない `--experimental-default-type=module` フラグを削除。PR exact-head `d4f24f976dd43d54b541b16123ed81dde3ad0bd7` の [Verify #45070110113](https://github.com/kinoko34077/memory-game/actions/runs/45070110113) はSUCCESS（23/23テスト）、独立Formal Reviewはnative COMMENTED・阻害P0〜P2なし。mainの4対象ファイルは統合後に実再取得して確認。
 - **検証境界:** PR上のVerify成功はsource main統合後のCIと同義ではない。mainのpush後ワークフロー結果はこの時点で未独立確認。実ブラウザ／外部公開を検証済みとはしない。
-- **別件の未受入:** JSON.parse／fetch例外を `console.warn(..., e)` として出すP3経路、保存・自動保存・ゲーム開始の追加漏洩テスト範囲、Nodeバージョン下限の明示、およびrandom-sort P3は別スコープ。今回のP2修正を未完了扱いにしない。
+- **P2受入当時の別件:** JSON.parse／fetch例外のP3、保存/自動保存/開始の追試、Node下限の明示、random-sort P3は旧受入時点では未対応だった。現在のP3追補の到達範囲は上段に示す。random-sortは引き続き独立Issue #22で扱う。
 
 Base version: `0.3.8`
 

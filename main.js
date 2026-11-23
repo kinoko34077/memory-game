@@ -208,7 +208,8 @@ function loadDefaultPairs() {
     })
     .catch(err => {
       if (generation !== pairLoadGeneration || useFileCheckbox.checked) return;
-      console.warn('pair.txt の読み込みに失敗。フォールバックに切り替え：', err);
+      // 通信エラーに入力やURLの情報が含まれていてもログへ出さない。
+      console.warn('pair.txt の読み込みに失敗。フォールバックに切り替えます');
       const fallbackText = `｜洋弓《ようきゅう》,アーチェリー\n｜氷球《ひょうきゅう》,アイスホッケー`;
       pairs = parsePairsWithRuby(fallbackText);
       fileLoaded = true;
