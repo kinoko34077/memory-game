@@ -440,3 +440,57 @@ test('private imported pair values and INI values never enter developer debug lo
     console.warn=previousWarn;
   }
 });
+
+test('settings save, autosave, start and failed reload do not expose imported or malformed content', async () => {
+  const iniSecret = 'PRIVATE_INI_AFTER_IMPORT_271828';
+  const brokenSecret = 'PRIVATE_SAVED_JSON_ERROR_314159';
+  const emitted = [];
+  const previousLog = console.log;
+  const previousWarn = console.warn;
+  console.log = (...values) => emitted.push(values);
+  console.warn = (...values) => emitted.push(values);
+  try {
+    const env = await boot({ defaultPairText: 'A,1\n' });
+    const { loadSettings, loadSettingsFromIni } = await import('../../settings-panel.js');
+    loadSettingsFromIni('pairRemoveMode = ' + iniSecret + '\n');
+    const saveButton = env.document.getElementById('save-settings');
+    assert.ok(saveButton, 'setup must register a real save-button action');
+    saveButton.click();
+    env.document.getElementById('set-font-size').dispatch('change');
+    loadSettings();
+    env.start(1);
+
+    localStorage.setItem('memorySettings', '{"pairRemoveMode":"' + brokenSecret + '",invalid');
+    assert.doesNotThrow(() => loadSettings(), 'invalid stored JSON must be handled');
+    const serialized = JSON.stringify(emitted);
+    assert.ok(!serialized.includes(iniSecret), 'saved/changed/started settings leaked');
+    assert.ok(!serialized.includes(brokenSecret), 'invalid JSON exception text leaked');
+    assert.match(serialized, /設定を保存しました/, 'save event should actually run');
+    assert.match(serialized, /設定変更を検知して保存/, 'autosave event should actually run');
+    assert.match(serialized, /ゲーム開始ボタン押下/, 'start log should actually run');
+    assert.match(serialized, /設定の読み込みに失敗しました/, 'failed-reload warning should remain visible');
+    assert.match(serialized, /keyCount/, 'safe INI diagnostics should remain');
+  } finally {
+    console.log = previousLog;
+    console.warn = previousWarn;
+  }
+});
+
+test('default pair fetch failure warns safely and retains fallback behavior', async () => {
+  const fetchErrorSecret = 'PRIVATE_FETCH_EXCEPTION_161803';
+  const emitted = [];
+  const previousWarn = console.warn;
+  console.warn = (...args) => emitted.push(args);
+  try {
+    const env = await boot({ deferDefaultFetch: true });
+    env.deferredFetch.reject(new Error(fetchErrorSecret));
+    await env.settle();
+    assert.ok(emitted.some(args => args[0]?.includes('フォールバックに切り替え')), 'fallback warning must occur');
+    assert.ok(!JSON.stringify(emitted).includes(fetchErrorSecret), 'fetch exception payload leaked');
+    assert.equal(env.startButton.disabled, false, 'fallback data should remain playable');
+    env.start(1);
+    assert.equal(env.board.children.length, 2, 'fallback should still generate one pair');
+  } finally {
+    console.warn = previousWarn;
+  }
+});
