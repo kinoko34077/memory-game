@@ -38,6 +38,16 @@ function logDebug(message, ...optional) {
   if (DEBUG) console.log(`[DEBUG] ${message}`, ...optional);
 }
 
+// Fisher–Yates: 比較関数に乱数を渡さず、元のペア配列を破壊しない。
+function shuffledCopy(items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 function logUserAction(text) {
   const entry = document.createElement('div');
   entry.textContent = text;
@@ -433,7 +443,7 @@ startButton.addEventListener('click', () => {
   if (mode === 'ascending') {
     selectedPairs = pairs.slice(0, pairCount);
   } else {
-    selectedPairs = [...pairs].sort(() => Math.random() - 0.5).slice(0, pairCount);
+    selectedPairs = shuffledCopy(pairs).slice(0, pairCount);
   }
 
   const gamePairs = selectedPairs.flatMap(([word, reading], pairIndex) => {
@@ -444,5 +454,5 @@ startButton.addEventListener('click', () => {
     ];
   });
 
-  setupBoard(gamePairs.sort(() => Math.random() - 0.5));
+  setupBoard(shuffledCopy(gamePairs));
 });
