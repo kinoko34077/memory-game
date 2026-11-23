@@ -110,7 +110,8 @@ export function loadSettings() {
     document.getElementById('set-countdown-seconds').value = settings.countdownSeconds ?? 60;
     console.log('[DEBUG] 設定をロードしました');
   } catch (e) {
-    console.warn('[WARN] 設定の読み込みに失敗しました', e);
+    // 保存済みの文字列を含む例外メッセージを開発者コンソールに流さない。
+    console.warn('[WARN] 設定の読み込みに失敗しました');
   }
 }
 
