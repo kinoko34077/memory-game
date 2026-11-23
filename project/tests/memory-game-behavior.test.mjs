@@ -494,3 +494,33 @@ test('default pair fetch failure warns safely and retains fallback behavior', as
     console.warn = previousWarn;
   }
 });
+
+test('uniform shuffle samples without biasing sort and preserves source/ascending semantics', async () => {
+  const env = await boot({ defaultPairText: 'A,1\nB,2\nC,3\n' });
+  await env.settle();
+  const previousRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    env.mode.value = 'random';
+    env.start(2);
+    const randomCards = env.board.children;
+    assert.deepEqual(randomCards.map(card => card.dataset.value), ['2', 'C', '3', 'B']);
+    assert.deepEqual(randomCards.map(card => card.dataset.pairId), ['pair-0', 'pair-1', 'pair-1', 'pair-0']);
+    env.mode.value = 'ascending';
+    env.start(2);
+    assert.deepEqual(env.board.children.map(card => card.dataset.value), ['1', 'B', '2', 'A'],
+      'ascending must still select the original first two source pairs');
+    env.start(1);
+    assert.deepEqual(env.board.children.map(card => card.dataset.value), ['1', 'A'],
+      'single-pair board must remain playable and shuffled');
+  } finally {
+    Math.random = previousRandom;
+  }
+});
+
+test('missing pair data still refuses game start before shuffling', async () => {
+  const env = await boot({ deferDefaultFetch: true });
+  env.start(1);
+  assert.equal(env.board.children.length, 0);
+  assert.ok(env.alerts.some(message => message.includes('ペアデータが読み込まれていません')));
+});
