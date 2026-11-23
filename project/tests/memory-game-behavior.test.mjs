@@ -411,3 +411,32 @@ test('missing csv column fails closed instead of replacing valid imported pairs'
   assert.ok(values.includes('KEEP'));
   assert.ok(!values.includes('ONLY_ONE_COLUMN'));
 });
+
+test('private imported pair values and INI values never enter developer debug logs',async()=>{
+  const pairSecret='PRIVATE_PAIR_SENTINEL_481920';
+  const iniSecret='PRIVATE_INI_SENTINEL_579134';
+  const emitted=[];
+  const previousLog=console.log,previousWarn=console.warn;
+  console.log=(...values)=>emitted.push(values);
+  console.warn=(...values)=>emitted.push(values);
+  try{
+    const env=await boot({defaultPairText:pairSecret+',default\n'});
+    await env.settle();
+    env.useFile.checked=true;
+    env.useFile.dispatch('change');
+    env.importPairs(pairSecret+',external\n');
+    await env.settle();
+    env.start(1);
+    const {loadSettingsFromIni}=await import('../../settings-panel.js');
+    loadSettingsFromIni('pairRemoveMode = '+iniSecret+'\n');
+    assert.ok(emitted.length>0,'exercise the actual DEBUG console paths');
+    const serialized=JSON.stringify(emitted);
+    assert.ok(!serialized.includes(pairSecret),'imported/default pair content leaked to console');
+    assert.ok(!serialized.includes(iniSecret),'imported INI content leaked to console');
+    assert.match(serialized,/pairCount/,'import logs should retain safe counts');
+    assert.match(serialized,/keyCount/,'INI logs should retain safe counts');
+  }finally{
+    console.log=previousLog;
+    console.warn=previousWarn;
+  }
+});
