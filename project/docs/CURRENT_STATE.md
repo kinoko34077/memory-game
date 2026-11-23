@@ -1,8 +1,15 @@
 # Current State
 
+## 2026-11-23 P2プライバシー修正：受入済み
+
+- [Owner #17](https://github.com/kinoko34077/memory-game/issues/17)／[PR #18](https://github.com/kinoko34077/memory-game/pull/18) をmainへsquash統合（`7d0527329b4e765c9968fb239ae219e3c6380068`）。ローカルのDEBUG consoleへ入力したペア全文／配列、INI設定の値、設定オブジェクトを出力せず、静的な状態名と件数のみを保持。ゲームロジック、読み込み検証、保存形式、UI挙動は変更しない。
+- 合成されたペア／INIの固有値を実読み込み経路で投入してconsole漏洩を拒否するProject回帰テストを追加。Projectのtest/verifyから現在Nodeで使えない `--experimental-default-type=module` フラグを削除。PR exact-head `d4f24f976dd43d54b541b16123ed81dde3ad0bd7` の [Verify #45070110113](https://github.com/kinoko34077/memory-game/actions/runs/45070110113) はSUCCESS（23/23テスト）、独立Formal Reviewはnative COMMENTED・阻害P0〜P2なし。mainの4対象ファイルは統合後に実再取得して確認。
+- **検証境界:** PR上のVerify成功はsource main統合後のCIと同義ではない。mainのpush後ワークフロー結果はこの時点で未独立確認。実ブラウザ／外部公開を検証済みとはしない。
+- **別件の未受入:** JSON.parse／fetch例外を `console.warn(..., e)` として出すP3経路、保存・自動保存・ゲーム開始の追加漏洩テスト範囲、Nodeバージョン下限の明示、およびrandom-sort P3は別スコープ。今回のP2修正を未完了扱いにしない。
+
 Base version: `0.3.8`
 
-Last verified: 2026-10-03 — Issue #15 / PR #16 duplicate-first-card input repair verified at exact head `3a5f194c3da93e79d158617f7aa8a736a250b8a0`; Verify `37109568875` succeeded
+Previous verification: 2026-10-03 — Issue #15 / PR #16 duplicate-first-card input repair verified at exact head `3a5f194c3da93e79d158617f7aa8a736a250b8a0`; Verify `37109568875` succeeded
 
 ## Implemented
 
