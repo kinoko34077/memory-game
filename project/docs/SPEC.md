@@ -31,7 +31,7 @@ implementation.
 
 ## Commands
 
-- `knt test` -> Node built-in tests for `project/tests/memory-game-behavior.test.mjs` and `project/tests/ruby-rendering.test.mjs`
+- `knt test` -> Node built-in tests for `project/tests/memory-game-behavior.test.mjs`, `project/tests/ruby-rendering.test.mjs`, and `project/tests/interaction-lifecycle.test.mjs`
 - `knt verify` -> the same Project-owned regression suites
 - no Project-owned setup, build, or deploy command is registered
 
