@@ -287,6 +287,7 @@ let lockBoard = false;
 function handleCardClick(e) {
   if (lockBoard || roundCompleted) return;
   const card = e.currentTarget;
+  if (card.classList.contains('matched') || card.classList.contains('removed')) return;
 
   if (!card.classList.contains('flipped')) {
     card.classList.add('flipped');
@@ -302,6 +303,8 @@ function handleCardClick(e) {
     const matchedSecond = card;
     matchedFirst.classList.add('matched');
     matchedSecond.classList.add('matched');
+    matchedFirst.disabled = true;
+    matchedSecond.disabled = true;
 
     if (settings.pairRemoveMode === 'hide') {
       setTimeout(() => {

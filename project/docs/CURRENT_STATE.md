@@ -1,5 +1,10 @@
 # Current State
 
+## 成立済みカードの操作拒否
+
+- [Owner #28](https://github.com/kinoko34077/memory-game/issues/28)：成立済みボタンをdisabledにし、click handlerでもmatched/removedを拒否する。CSSのポインター拒否だけに依存せず、キーボード／直接イベントでも次のペアの選択に干渉させない。新規ラウンドのカードは通常どおり操作可能。
+- 既存interaction-lifecycle回帰で2ペアの成立、成立済みカードへの再activation/直接dispatch、次のペア成立、完了timer停止、新規ラウンドを検証する。実機フォーカス表示は独立した未検証境界。
+
 ## P3シャッフルの一様性修正
 
 - [Owner #22](https://github.com/kinoko34077/memory-game/issues/22) で、ランダムペア選択とボードのカード配置に、配列のコピー上でのFisher–Yatesシャッフルを採用する。乱数を`Array.sort`の比較関数に用いる非推移的な比較を廃止する。

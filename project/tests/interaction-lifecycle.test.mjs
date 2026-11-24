@@ -272,6 +272,33 @@ test('game cards use native button semantics for keyboard activation', async () 
   }
 });
 
+test('completed cards cannot be activated again or interfere with another pair', async () => {
+  const env = await boot({ defaultPairText: 'A,1\nB,2\n' });
+  env.start(2);
+
+  const firstId = env.board.children[0].dataset.pairId;
+  const matched = env.board.children.filter(card => card.dataset.pairId === firstId);
+  const remaining = env.board.children.filter(card => card.dataset.pairId !== firstId);
+  matched[0].click();
+  matched[1].click();
+
+  // Native keyboard activation reaches the click handler independently of CSS
+  // pointer-events. Also check directly dispatched events, even on disabled cards.
+  matched[0].click();
+  matched[0].dispatch('click');
+  remaining[0].click();
+  matched[1].dispatch('click');
+  remaining[1].click();
+
+  assert.ok(matched.every(card => card.disabled), 'matched buttons must leave the tab/activation path');
+  assert.ok(matched.every(card => card.classList.contains('flipped')), 'completed cards must remain flipped');
+  assert.ok(remaining.every(card => card.classList.contains('matched')), 'the next pair must complete normally');
+  assert.equal(env.intervals.size, 0, 'the final pair must still stop the timer');
+  assert.match(env.logArea.children.at(-1)?.textContent ?? '', /完了/);
+  env.start(2);
+  assert.ok(env.board.children.every(card => !card.disabled), 'a new round must remain fully operable');
+});
+
 test('pending default pair load disables Start without reporting a hard error', async () => {
   const env = await boot({ deferDefaultFetch: true });
 
