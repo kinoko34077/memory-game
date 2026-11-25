@@ -412,6 +412,27 @@ test('missing csv column fails closed instead of replacing valid imported pairs'
   assert.ok(!values.includes('ONLY_ONE_COLUMN'));
 });
 
+test('quoted empty single-column record rejects the whole candidate but blank lines remain allowed', async () => {
+  const env = await boot();
+  env.useFile.checked = true;
+  env.useFile.dispatch('change');
+  env.importPairs('KEEP,1\n');
+  env.importPairs('REPLACE,2\n""\n');
+  assert.match(env.alerts.at(-1) ?? '', /2行目/);
+  assert.equal(env.startButton.disabled, false);
+  env.start(1);
+  const preserved = env.board.children.map(card => card.dataset.value);
+  assert.ok(preserved.includes('KEEP'));
+  assert.ok(!preserved.includes('REPLACE'));
+  const alertCount = env.alerts.length;
+  env.importPairs('\n  \n"",ACCEPTED\n');
+  assert.equal(env.alerts.length, alertCount);
+  env.start(1);
+  const accepted = env.board.children.map(card => card.dataset.value);
+  assert.ok(accepted.includes(''));
+  assert.ok(accepted.includes('ACCEPTED'));
+});
+
 test('private imported pair values and INI values never enter developer debug logs',async()=>{
   const pairSecret='PRIVATE_PAIR_SENTINEL_481920';
   const iniSecret='PRIVATE_INI_SENTINEL_579134';

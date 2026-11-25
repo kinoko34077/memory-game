@@ -138,8 +138,9 @@ function parsePairs(text) {
     afterQuote = false;
   };
   const pushRecord = () => {
+    const wasQuoted = fieldWasQuoted;
     pushField();
-    const isBlank = row.length === 1 && row[0] === '';
+    const isBlank = row.length === 1 && row[0] === '' && !wasQuoted;
     if (!isBlank) {
       if (row.length !== 2) fail('2列である必要があります');
       records.push(row);
